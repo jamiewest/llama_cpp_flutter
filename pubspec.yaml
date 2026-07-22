@@ -5,20 +5,14 @@ description: >-
   clients for the agents framework and memory-aware multi-agent orchestration
   over one loaded model.
 version: 0.1.0
-publish_to: 'none'
 repository: https://github.com/jamiewest/local_agents
-resolution: workspace
 
 environment:
   sdk: ^3.12.0
-  flutter: '>=3.44.0'
+  flutter: ">=3.44.0"
 
 dependencies:
-  agents:
-    git:
-      url: https://github.com/jamiewest/agents.git
-      ref: 0ca5dd079e42294687c23003a4795d365ca79ea7
-      path: packages/agents
+  agents: ^1.5.0
   extensions: ^0.5.0
   ffi: ^2.1.0
   flutter:
