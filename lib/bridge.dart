@@ -4,7 +4,7 @@
 /// worker isolate, so model loading and token streaming never block the UI.
 ///
 /// Most consumers want the neutral, cross-platform API in
-/// `package:llama_flutter/llama_flutter.dart` instead; this entrypoint is the
+/// `package:llama_cpp_flutter/llama_cpp_flutter.dart` instead; this entrypoint is the
 /// raw bridge it wraps (kept separate because both layers define a
 /// `LlamaSession` type).
 library;
@@ -19,7 +19,7 @@ import 'src/messages.g.dart';
 export 'src/llama_isolate.dart'
     show LlamaException, LlamaFinishReason, LlamaGenerationStats;
 
-/// A loaded model session, returned by [LlamaFlutter.loadModel].
+/// A loaded model session, returned by [LlamaCppFlutter.loadModel].
 class LlamaSession {
   LlamaSession._(this._isolate, this.id, this.maxSequences);
 
@@ -141,7 +141,7 @@ class LlamaSession {
       _isolate.clearSequence(id, sequenceId);
 
   /// Changes the per-image vision token budget for subsequent image turns
-  /// (see [LlamaFlutter.loadModel]'s `imageTokenBudget`); null restores the
+  /// (see [LlamaCppFlutter.loadModel]'s `imageTokenBudget`); null restores the
   /// model's metadata default.
   ///
   /// Cheap relative to a model reload: the next image turn re-creates the
@@ -161,13 +161,13 @@ class LlamaSession {
 /// Create one instance, [loadModel] one or more GGUF files, then [generate]
 /// against the returned [LlamaSession]. Call [shutdown] when done to tear down
 /// the worker isolate.
-class LlamaFlutter {
+class LlamaCppFlutter {
   /// Creates the entry point. [loggerFactory] supplies loggers for model
   /// loading and generation diagnostics; null logs nothing.
-  LlamaFlutter({LoggerFactory? loggerFactory})
+  LlamaCppFlutter({LoggerFactory? loggerFactory})
     : _isolate = LlamaIsolate(loggerFactory: loggerFactory),
       _logger = (loggerFactory ?? NullLoggerFactory.instance).createLogger(
-        'LlamaFlutter',
+        'LlamaCppFlutter',
       );
 
   final LlamaIsolate _isolate;

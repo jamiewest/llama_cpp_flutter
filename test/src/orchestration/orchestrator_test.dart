@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:agents/agents.dart' show ChatClientAgent;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:llama_flutter/llama_flutter.dart';
+import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 
 final class _FakeSession implements LlamaSession {
   _FakeSession({

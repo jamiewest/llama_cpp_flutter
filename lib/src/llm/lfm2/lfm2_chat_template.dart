@@ -48,7 +48,7 @@ class Lfm2Prompt {
     this.images = const <Uint8List>[],
   });
 
-  /// The formatted prompt, ready to pass to `LlamaFlutter.generate`.
+  /// The formatted prompt, ready to pass to `LlamaCppFlutter.generate`.
   final String text;
 
   /// Strings that terminate a generation turn. See

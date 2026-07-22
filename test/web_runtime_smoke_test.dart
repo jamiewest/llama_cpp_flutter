@@ -1,7 +1,7 @@
 @TestOn('browser')
 library;
 
-import 'package:llama_flutter/llama_flutter.dart';
+import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -9,7 +9,7 @@ void main() {
     expect(createLlamaRuntime(), isA<LlamaRuntime>());
     expect(
       llamaWasmAssetPath,
-      'assets/packages/llama_flutter/lib/assets/wasm/wllama.wasm',
+      'assets/packages/llama_cpp_flutter/lib/assets/wasm/wllama.wasm',
     );
   });
 }

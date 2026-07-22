@@ -1,18 +1,18 @@
-# llama_flutter
+# llama_cpp_flutter
 
 ## How the xcframework gets installed
 
-`packages/llama_flutter/scripts/fetch_llama_xcframework.sh` downloads the
+`scripts/fetch_llama_xcframework.sh` downloads the
 pinned zip from ggml-org/llama.cpp releases, verifies the sha256, and unpacks
 to `darwin/Frameworks/llama.xcframework` (gitignored). A marker file
 (`.llama.xcframework.sha256`, storing `<tag> <sha>`) makes re-runs no-ops.
 
-The podspec (`darwin/llama_flutter.podspec`) runs this script during podspec
+The podspec (`darwin/llama_cpp_flutter.podspec`) runs this script during podspec
 evaluation, so plain `pod install` / `flutter build` works on a fresh checkout.
 That hook is podspec-eval-time on purpose: CocoaPods does not run
 `prepare_command` for `:path` (development) pods — which is how Flutter
 integrates plugins — and `script_phase` runs after `vendored_frameworks`
-resolution. Escape hatch: `LLAMA_FLUTTER_SKIP_FETCH=1`.
+resolution. Escape hatch: `LLAMA_CPP_FLUTTER_SKIP_FETCH=1`.
 
 `scripts/build_llama_xcframework.sh` is a **fallback only** (source build with
 mtmd patching for old refs); the normal path is the fetch script.

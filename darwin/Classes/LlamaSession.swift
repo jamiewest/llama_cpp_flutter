@@ -30,7 +30,7 @@ struct GenerationError: Error {
 /// app's stdout is a pipe (e.g. under `flutter run`) it is block-buffered, so
 /// `print` output can sit unflushed and be lost if the process aborts.
 private func logNative(_ message: String) {
-  fputs("[llama_flutter] \(message)\n", stderr)
+  fputs("[llama_cpp_flutter] \(message)\n", stderr)
 }
 
 /// Microseconds elapsed since `start`, for the stats reported to Dart.
@@ -204,7 +204,7 @@ final class LlamaSession {
     self.mtmdUseGpu = mtmdUseGpu
     self.imageTokenBudget = imageTokenBudget
     self.draft = draft
-    self.queue = DispatchQueue(label: "dev.llama_flutter.session.\(sessionId)")
+    self.queue = DispatchQueue(label: "dev.llama_cpp_flutter.session.\(sessionId)")
   }
 
   /// Loads `request.modelPath` into a new session, or returns `nil` on failure.

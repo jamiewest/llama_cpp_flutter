@@ -167,7 +167,7 @@ bool _isTextOnlyProviderMessage(ChatMessage message) {
 }
 
 /// Bridges the M.E.AI chat abstractions to a model running through
-/// `LlamaFlutter`.
+/// `LlamaCppFlutter`.
 ///
 /// This is the **inner** client: wrap it with `FunctionInvokingChatClient` so
 /// tool calls it surfaces (as [FunctionCallContent]) are executed and fed back.

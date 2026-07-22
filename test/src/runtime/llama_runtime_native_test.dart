@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 
-import 'package:llama_flutter/llama_flutter.dart';
-import 'package:llama_flutter/src/runtime/llama_runtime_native.dart';
+import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
+import 'package:llama_cpp_flutter/src/runtime/llama_runtime_native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:llama_flutter/bridge.dart' as native;
+import 'package:llama_cpp_flutter/bridge.dart' as native;
 
 final class _FakeNativeSession implements native.LlamaSession {
   _FakeNativeSession({this.stats});
@@ -76,8 +76,8 @@ final class _FakeNativeSession implements native.LlamaSession {
   Future<void> dispose() async {}
 }
 
-final class _RecordingLlamaFlutter implements native.LlamaFlutter {
-  _RecordingLlamaFlutter({this.stats});
+final class _RecordingLlamaCppFlutter implements native.LlamaCppFlutter {
+  _RecordingLlamaCppFlutter({this.stats});
 
   /// Stats the returned session reports through `onStats`, when set.
   final native.LlamaGenerationStats? stats;
@@ -143,7 +143,7 @@ ModelSpec _spec({
 void main() {
   group('NativeLlamaRuntime.loadModel', () {
     test('forwards projector, draft path, and draft tuning', () async {
-      final llama = _RecordingLlamaFlutter();
+      final llama = _RecordingLlamaCppFlutter();
       final runtime = NativeLlamaRuntime(llama: llama);
 
       await runtime.loadModel(
@@ -164,7 +164,7 @@ void main() {
     });
 
     test('omitted artifacts forward null and keep text-only load', () async {
-      final llama = _RecordingLlamaFlutter();
+      final llama = _RecordingLlamaCppFlutter();
       final runtime = NativeLlamaRuntime(llama: llama);
 
       await runtime.loadModel(_spec(), localPath: '/models/main.gguf');
@@ -177,7 +177,7 @@ void main() {
     });
 
     test('forwards runtime image-budget changes to the plugin', () async {
-      final llama = _RecordingLlamaFlutter();
+      final llama = _RecordingLlamaCppFlutter();
       final runtime = NativeLlamaRuntime(llama: llama);
       final session = await runtime.loadModel(
         _spec(),
@@ -195,7 +195,7 @@ void main() {
     });
 
     test('requires a local model path', () async {
-      final runtime = NativeLlamaRuntime(llama: _RecordingLlamaFlutter());
+      final runtime = NativeLlamaRuntime(llama: _RecordingLlamaCppFlutter());
 
       expect(() => runtime.loadModel(_spec()), throwsArgumentError);
     });
@@ -203,7 +203,7 @@ void main() {
 
   group('NativeLlamaRuntime stats', () {
     test('maps native stats onto the engine-neutral shape', () async {
-      final llama = _RecordingLlamaFlutter(
+      final llama = _RecordingLlamaCppFlutter(
         stats: const native.LlamaGenerationStats(
           promptTokenCount: 10,
           cachedTokenCount: 4,

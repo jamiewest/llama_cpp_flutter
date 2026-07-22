@@ -1,5 +1,5 @@
 import 'package:agents/agents.dart';
-import 'package:llama_flutter/llama_flutter.dart';
+import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 import 'package:extensions/ai.dart';
 
 /// How reluctantly an agent's context should be sacrificed under memory

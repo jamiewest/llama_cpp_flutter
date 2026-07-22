@@ -5,7 +5,7 @@ import 'package:extensions/ai.dart';
 
 import 'gemma_chat_template.dart';
 
-/// Turns the `Stream<String>` from `LlamaFlutter.generate` into a stream of
+/// Turns the `Stream<String>` from `LlamaCppFlutter.generate` into a stream of
 /// [ChatResponseUpdate]s for an M.E.AI chat client.
 ///
 /// Three kinds of content are separated as they stream in:

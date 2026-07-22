@@ -4,8 +4,8 @@
 /// over a single loaded model.
 ///
 /// This barrel exposes the neutral runtime API ([LlamaRuntime] /
-/// [LlamaSession]). The low-level darwin plugin bridge (`LlamaFlutter` and
-/// its own session type) lives in `package:llama_flutter/bridge.dart`.
+/// [LlamaSession]). The low-level darwin plugin bridge (`LlamaCppFlutter` and
+/// its own session type) lives in `package:llama_cpp_flutter/bridge.dart`.
 library;
 
 export 'src/diagnostics/prompt_inspector.dart';

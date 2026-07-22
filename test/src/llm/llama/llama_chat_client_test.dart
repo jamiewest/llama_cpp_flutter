@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:agents/agents.dart';
-import 'package:llama_flutter/llama_flutter.dart';
+import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 import 'package:extensions/ai.dart';
 import 'package:extensions/system.dart';
 import 'package:flutter_test/flutter_test.dart';

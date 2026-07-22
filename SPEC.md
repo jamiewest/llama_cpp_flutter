@@ -1,8 +1,8 @@
-# llama_flutter orchestration — design spec (draft 1)
+# llama_cpp_flutter orchestration — design spec (draft 1)
 
 > Historical note: this layer began life as the standalone
 > `llama_orchestrator` package, was merged into `agents_llama` (briefly
-> `llama_flutter`), and now lives in `llama_flutter` as
+> `llama_cpp_flutter`), and now lives in `llama_cpp_flutter` as
 > `lib/src/orchestration/`.
 
 Status: **v1 + phase 2 implemented** (M0a, M0b, M1–M4 core, and both §9
@@ -62,11 +62,11 @@ Today the stack has the right seams but no owner:
   `llama_chat_client.dart:21`) and deliberately does **not** own the session
   lifecycle. Something external is supposed to own load/dispose/state — that
   something doesn't exist yet.
-- `llama_flutter` already has KV-cache persistence
+- `llama_cpp_flutter` already has KV-cache persistence
   (`LlamaSession.saveState(path)` / `loadState(path)`, backed by
   `llama_state_seq_save_file`/`load_file` in `LlamaSession.swift`), but it is
   **not surfaced** through the neutral `LlamaSession` interface in
-  `llama_flutter`.
+  `llama_cpp_flutter`.
 - Nothing anywhere estimates memory or watches system pressure. Context size
   is whatever `ModelSpec.contextSize` says, and if it doesn't fit, the OS
   jetsams the app (iOS) or swaps (macOS).
@@ -117,7 +117,7 @@ stay in `SamplingDefaults` and are irrelevant to the planner.
 ## 3. Package layout
 
 ```
-packages/llama_flutter/lib/src/orchestration/
+packages/llama_cpp_flutter/lib/src/orchestration/
   orchestrator.dart            # LlamaOrchestrator (core)
   agent_profile.dart           # AgentProfile, AgentHandle
   memory/memory_monitor.dart   # SystemMemoryMonitor (conditional io/web)
@@ -126,9 +126,9 @@ packages/llama_flutter/lib/src/orchestration/
   state/snapshot_store.dart    # per-agent KV snapshot files
 ```
 
-Dependencies: `llama_flutter` (runtime, chat clients, GGUF reader,
+Dependencies: `llama_cpp_flutter` (runtime, chat clients, GGUF reader,
 `ModelSpec`), `extensions` (ChatClient types). It must **not** depend on
-`llama_flutter` directly — everything platform-specific goes through the
+`llama_cpp_flutter` directly — everything platform-specific goes through the
 neutral `LlamaSession` interface, which we extend (§7).
 
 ## 4. Public API sketch
@@ -175,7 +175,7 @@ next turn starts fresh).
 
 ### 5.1 Why one session
 
-In `llama_flutter`, one session = one model **copy** + one context; loading
+In `llama_cpp_flutter`, one session = one model **copy** + one context; loading
 the same model twice duplicates the weights (no model sharing across
 sessions). So for a single set of weights the orchestrator keeps exactly one
 active `LlamaSession` and time-slices it between agents. Weight duplication
@@ -254,7 +254,7 @@ abstract interface class SystemMemoryMonitor {
   honest than vm stats. Pressure stream via
   `DISPATCH_SOURCE_TYPE_MEMORYPRESSURE`; that one *does* need a small
   platform hook, so v1 may ship polling-only (default 5 s interval,
-  configurable) with the dispatch source added to `llama_flutter` later
+  configurable) with the dispatch source added to `llama_cpp_flutter` later
   (§7, optional).
 - **Web:** `navigator.deviceMemory` (coarse, capped at 8) and, where
   present, `performance.measureUserAgentSpecificMemory()`. Honest answer:
@@ -265,7 +265,7 @@ abstract interface class SystemMemoryMonitor {
 ### 6.2 ModelMemoryEstimator
 
 Input: GGUF header (via the existing `readGgufMetadata` /
-`GgufReader` in `llama_flutter`, with the key set extended — §7) + file size.
+`GgufReader` in `llama_cpp_flutter`, with the key set extended — §7) + file size.
 
 ```dart
 class MemoryEstimate {
@@ -336,7 +336,7 @@ llama.cpp contexts can't change n_ctx in place, so resize = recreate:
 
 ## 7. Required changes in the other layers (prerequisites)
 
-**`llama_flutter` (M0a):**
+**`llama_cpp_flutter` (M0a):**
 
 1. Surface state ops on the neutral interface — additive:
    ```dart
@@ -355,7 +355,7 @@ llama.cpp contexts can't change n_ctx in place, so resize = recreate:
 3. No changes to `LlamaChatClient` — `SessionProvider` is already the right
    seam.
 
-**`llama_flutter` (M0b, small Pigeon additions):**
+**`llama_cpp_flutter` (M0b, small Pigeon additions):**
 
 1. `@async int getStateSize(int sessionId)` → `llama_state_seq_get_size`
    (exact KV+state byte size — feeds estimator calibration).
@@ -420,8 +420,8 @@ touches the staging `llama_ext_` ABI.
 
 | # | deliverable | depends on |
 |---|---|---|
-| M0a | `llama_flutter`: state ops + capabilities on neutral interface; GGUF file helper | — |
-| M0b | `llama_flutter`: `getStateSize`, memory info/pressure (optional) | — |
+| M0a | `llama_cpp_flutter`: state ops + capabilities on neutral interface; GGUF file helper | — |
+| M0b | `llama_cpp_flutter`: `getStateSize`, memory info/pressure (optional) | — |
 | M1 | package scaffold; estimator + planner (pure, fully unit-tested); FFI memory monitor | M0a |
 | M2 | orchestrator core: registry, activation/swap, snapshot store; integration test with a real model swapping two agents | M1 |
 | M3 | monitoring loop + dynamic resize with hysteresis; pressure-event fast path | M2, (M0b) |

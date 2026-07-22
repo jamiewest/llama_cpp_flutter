@@ -19,10 +19,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 PKG_DIR="$(dirname "$SCRIPT_DIR")"
-REPO_ROOT="$(cd "$PKG_DIR/../.." && pwd -P)"
 
-# shellcheck source=../../../tool/versions.env
-source "$REPO_ROOT/tool/versions.env"
+# shellcheck source=../tool/versions.env
+source "$PKG_DIR/tool/versions.env"
 LLAMA_REF="${LLAMA_REF:-$LLAMA_CPP_TAG}"
 DEST="$PKG_DIR/darwin/Frameworks"
 WORK="$(mktemp -d)"

@@ -22,7 +22,7 @@ const int _maxWebModelBytes = 0x7fffffff;
 /// Models at or under the wasm32 per-file limit go through wllama's own
 /// URL cache instead; only files that must be staged as client-side
 /// splits land here (keyed by URL, reused across sessions).
-const String _largeModelCacheDir = 'llama_flutter_large_models';
+const String _largeModelCacheDir = 'llama_cpp_flutter_large_models';
 
 /// Creates the wllama runtime for Flutter web.
 LlamaRuntime createLlamaRuntime({LoggerFactory? loggerFactory}) =>

@@ -95,7 +95,7 @@ LlamaFinishReason _finishReason(FinishReason reason) => switch (reason) {
 };
 
 /// Owns the worker isolate and routes commands/replies between it and the
-/// main isolate. One instance backs a single [LlamaFlutter] facade.
+/// main isolate. One instance backs a single [LlamaCppFlutter] facade.
 class LlamaIsolate {
   /// Creates the isolate owner. [loggerFactory] supplies the logger used for
   /// worker lifecycle and generation diagnostics; null logs nothing.

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:llama_flutter/llama_flutter.dart';
+import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

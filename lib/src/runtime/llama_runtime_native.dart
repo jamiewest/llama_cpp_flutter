@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:extensions/logging.dart';
-import 'package:llama_flutter/bridge.dart' as native;
+import 'package:llama_cpp_flutter/bridge.dart' as native;
 
 import '../models/model_spec.dart';
 import 'llama_runtime_api.dart';
@@ -11,7 +11,7 @@ import 'model_downloader_io.dart';
 LlamaRuntime createLlamaRuntime({LoggerFactory? loggerFactory}) =>
     NativeLlamaRuntime(loggerFactory: loggerFactory);
 
-/// Loads GGUF models through the `llama_flutter` plugin.
+/// Loads GGUF models through the `llama_cpp_flutter` plugin.
 final class NativeLlamaRuntime implements LlamaRuntime {
   /// Creates the runtime.
   ///
@@ -22,17 +22,17 @@ final class NativeLlamaRuntime implements LlamaRuntime {
   /// [downloader] overrides how those downloads run (auth token, fakes in
   /// tests).
   NativeLlamaRuntime({
-    native.LlamaFlutter? llama,
+    native.LlamaCppFlutter? llama,
     this._downloader,
     this._artifactCacheDirectory,
     LoggerFactory? loggerFactory,
-  }) : _llama = llama ?? native.LlamaFlutter(loggerFactory: loggerFactory),
+  }) : _llama = llama ?? native.LlamaCppFlutter(loggerFactory: loggerFactory),
        _loggerFactory = loggerFactory,
        _logger = (loggerFactory ?? NullLoggerFactory.instance).createLogger(
          'NativeLlamaRuntime',
        );
 
-  final native.LlamaFlutter _llama;
+  final native.LlamaCppFlutter _llama;
   final ModelDownloader? _downloader;
   final String? _artifactCacheDirectory;
   final LoggerFactory? _loggerFactory;

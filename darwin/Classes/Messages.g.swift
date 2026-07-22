@@ -772,7 +772,7 @@ class LlamaHostApiSetup {
   static func setUp(binaryMessenger: FlutterBinaryMessenger, api: LlamaHostApi?, messageChannelSuffix: String = "") {
     let channelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
     /// Loads the model and returns an opaque session id.
-    let loadModelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_flutter.LlamaHostApi.loadModel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let loadModelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.loadModel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       loadModelChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -790,7 +790,7 @@ class LlamaHostApiSetup {
       loadModelChannel.setMessageHandler(nil)
     }
     /// Starts generation; tokens arrive on the [LlamaTokenStream] event channel.
-    let startGenerationChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_flutter.LlamaHostApi.startGeneration\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let startGenerationChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.startGeneration\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       startGenerationChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -806,7 +806,7 @@ class LlamaHostApiSetup {
       startGenerationChannel.setMessageHandler(nil)
     }
     /// Requests cancellation of an in-flight generation for [sessionId].
-    let cancelGenerationChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_flutter.LlamaHostApi.cancelGeneration\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let cancelGenerationChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.cancelGeneration\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       cancelGenerationChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -827,7 +827,7 @@ class LlamaHostApiSetup {
     /// covered by the snapshot: positive on success, `0` when the sequence
     /// holds no reusable cache (no file is written). Runs on the session's
     /// serial queue, so it cannot interleave with generation.
-    let saveSessionStateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_flutter.LlamaHostApi.saveSessionState\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let saveSessionStateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.saveSessionState\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       saveSessionStateChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -854,7 +854,7 @@ class LlamaHostApiSetup {
     /// was written by an incompatible model — the sequence is left with an
     /// empty cache in that case, so the next generation simply prefills from
     /// scratch.
-    let loadSessionStateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_flutter.LlamaHostApi.loadSessionState\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let loadSessionStateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.loadSessionState\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       loadSessionStateChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -880,7 +880,7 @@ class LlamaHostApiSetup {
     /// cache, so orchestrating callers can budget memory or disk before
     /// snapshotting. Runs on the session's serial queue, so it cannot
     /// interleave with generation.
-    let getSessionStateSizeChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_flutter.LlamaHostApi.getSessionStateSize\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let getSessionStateSizeChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.getSessionStateSize\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       getSessionStateSizeChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -906,7 +906,7 @@ class LlamaHostApiSetup {
     /// dies with the session (disposed with it). An existing entry under
     /// [key] is replaced. Returns zero counts when the sequence holds no
     /// reusable cache (nothing is stashed).
-    let stashSessionStateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_flutter.LlamaHostApi.stashSessionState\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let stashSessionStateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.stashSessionState\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       stashSessionStateChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -931,7 +931,7 @@ class LlamaHostApiSetup {
     ///
     /// Returns the number of tokens restored; fails (throws) when [key] has
     /// no entry or the copy fails, leaving the sequence's cache empty.
-    let restoreStashedStateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_flutter.LlamaHostApi.restoreStashedState\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let restoreStashedStateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.restoreStashedState\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       restoreStashedStateChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -952,7 +952,7 @@ class LlamaHostApiSetup {
     }
     /// Removes the stash entry under [key], freeing its memory. Returns the
     /// number of bytes freed (`0` when no entry existed).
-    let dropStashedStateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_flutter.LlamaHostApi.dropStashedState\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let dropStashedStateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.dropStashedState\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       dropStashedStateChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -972,7 +972,7 @@ class LlamaHostApiSetup {
     }
     /// Erases one sequence's KV cache and prompt ledger. Queued behind any
     /// in-flight generation like every other session operation.
-    let clearSequenceChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_flutter.LlamaHostApi.clearSequence\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let clearSequenceChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.clearSequence\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       clearSequenceChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -999,7 +999,7 @@ class LlamaHostApiSetup {
     /// and KV caches stay untouched. Fails when the budget exceeds the
     /// micro-batch size fixed at load (`n_ubatch`); raising it beyond that
     /// requires reloading the model.
-    let setImageTokenBudgetChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_flutter.LlamaHostApi.setImageTokenBudget\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let setImageTokenBudgetChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.setImageTokenBudget\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       setImageTokenBudgetChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -1018,7 +1018,7 @@ class LlamaHostApiSetup {
       setImageTokenBudgetChannel.setMessageHandler(nil)
     }
     /// Frees the model/context associated with [sessionId].
-    let disposeSessionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_flutter.LlamaHostApi.disposeSession\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let disposeSessionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.disposeSession\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       disposeSessionChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -1093,7 +1093,7 @@ class StreamTokensStreamHandler: PigeonEventChannelWrapper<TokenEvent> {
   static func register(with messenger: FlutterBinaryMessenger,
                       instanceName: String = "",
                       streamHandler: StreamTokensStreamHandler) {
-    var channelName = "dev.flutter.pigeon.llama_flutter.LlamaTokenStream.streamTokens"
+    var channelName = "dev.flutter.pigeon.llama_cpp_flutter.LlamaTokenStream.streamTokens"
     if !instanceName.isEmpty {
       channelName += ".\(instanceName)"
     }

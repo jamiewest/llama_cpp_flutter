@@ -1,4 +1,4 @@
-# Orchestration in `llama_flutter`
+# Orchestration in `llama_cpp_flutter`
 
 Memory-aware orchestration of purpose-specific agents over a single
 loaded llama.cpp model. One model, many agents (a database agent, a code
@@ -11,7 +11,7 @@ See [SPEC.md](SPEC.md) for the full design.
 ## Usage
 
 ```dart
-import 'package:llama_flutter/llama_flutter.dart';
+import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 
 final orchestrator = LlamaOrchestrator(
   runtime: createLlamaRuntime(),

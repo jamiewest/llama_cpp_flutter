@@ -1,5 +1,5 @@
-name: llama_flutter_example
-description: Minimal app that links llama_flutter against the vendored llama.xcframework (used by CI as the link-level smoke test).
+name: llama_cpp_flutter_example
+description: Minimal app that links llama_cpp_flutter against the vendored llama.xcframework (used by CI as the link-level smoke test).
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -9,7 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  llama_flutter:
+  llama_cpp_flutter:
     path: ../
 
 dev_dependencies:

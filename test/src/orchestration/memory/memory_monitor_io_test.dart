@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:llama_flutter/src/orchestration/memory/memory_monitor_io.dart';
+import 'package:llama_cpp_flutter/src/orchestration/memory/memory_monitor_io.dart';
 
 void main() {
   test('DarwinMemoryMonitor measures real values on macOS', () async {

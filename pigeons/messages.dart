@@ -6,7 +6,7 @@ import 'package:pigeon/pigeon.dart';
     dartOptions: DartOptions(),
     swiftOut: 'darwin/Classes/Messages.g.swift',
     swiftOptions: SwiftOptions(errorClassName: 'LlamaError'),
-    dartPackageName: 'llama_flutter',
+    dartPackageName: 'llama_cpp_flutter',
   ),
 )
 /// Parameters for an optional drafter (assistant) model that enables

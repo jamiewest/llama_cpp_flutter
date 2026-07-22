@@ -1,6 +1,6 @@
-# llama_flutter_example
+# llama_cpp_flutter_example
 
-Minimal harness that links `llama_flutter` against the vendored
+Minimal harness that links `llama_cpp_flutter` against the vendored
 `llama.xcframework`. CI builds it on macOS so every PR exercises compile +
 link of the plugin's Swift/C++ against the pinned framework.
 

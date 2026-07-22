@@ -1,11 +1,11 @@
-name: llama_flutter
+name: llama_cpp_flutter
 description: >-
   On-device LLM inference for Flutter, backed by llama.cpp: a vendored
   xcframework with a Pigeon bridge on iOS/macOS, wllama on web, plus GGUF chat
   clients for the agents framework and memory-aware multi-agent orchestration
   over one loaded model.
 version: 0.1.0
-repository: https://github.com/jamiewest/local_agents
+repository: https://github.com/jamiewest/llama_cpp_flutter
 
 environment:
   sdk: ^3.12.0
@@ -30,10 +30,10 @@ flutter:
   plugin:
     platforms:
       ios:
-        pluginClass: LlamaFlutterPlugin
+        pluginClass: LlamaCppFlutterPlugin
         sharedDarwinSource: true
       macos:
-        pluginClass: LlamaFlutterPlugin
+        pluginClass: LlamaCppFlutterPlugin
         sharedDarwinSource: true
   assets:
     - lib/assets/wasm/

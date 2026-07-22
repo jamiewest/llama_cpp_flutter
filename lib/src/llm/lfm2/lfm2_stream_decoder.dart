@@ -5,7 +5,7 @@ import 'package:extensions/ai.dart';
 
 import 'lfm2_chat_template.dart';
 
-/// Turns the `Stream<String>` from `LlamaFlutter.generate` into a stream of
+/// Turns the `Stream<String>` from `LlamaCppFlutter.generate` into a stream of
 /// [ChatResponseUpdate]s for an M.E.AI chat client.
 ///
 /// LFM2 has no reasoning channel, so output is two kinds of content:

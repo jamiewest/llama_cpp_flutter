@@ -1,4 +1,4 @@
-# llama_flutter
+# llama_cpp_flutter
 
 On-device LLM inference for Flutter, backed by
 [llama.cpp](https://github.com/ggml-org/llama.cpp) — local GGUF
@@ -8,14 +8,14 @@ memory-aware multi-agent orchestration over one loaded model.
 
 Two entrypoints:
 
-- `package:llama_flutter/llama_flutter.dart` — the cross-platform API most
+- `package:llama_cpp_flutter/llama_cpp_flutter.dart` — the cross-platform API most
   consumers want: neutral `LlamaRuntime`/`LlamaSession` abstraction,
   `ChatClient` adapter, chat formats, GGUF metadata reader, model
   downloader, and the orchestration layer (see `SPEC.md` and
   `doc/orchestration.md`). Native platforms run through the plugin bridge
   below; web runs through `@wllama/wllama` with the matching `wllama.wasm`
   shipped as a Flutter asset.
-- `package:llama_flutter/bridge.dart` — the low-level iOS/macOS plugin
+- `package:llama_cpp_flutter/bridge.dart` — the low-level iOS/macOS plugin
   bridge (kept separate because both layers define a `LlamaSession`):
   - **Native bridge:** [Pigeon](https://pub.dev/packages/pigeon) — a typed
     `@HostApi` for control and an `@EventChannelApi` token stream.
@@ -37,7 +37,7 @@ is a no-op once the installed framework matches the pin in
 # Try a different upstream release (checksum verification is skipped):
 LLAMA_CPP_TAG_OVERRIDE=<tag> ./scripts/fetch_llama_xcframework.sh
 # Skip the automatic fetch during pod install (offline/lint environments):
-LLAMA_FLUTTER_SKIP_FETCH=1 pod install
+LLAMA_CPP_FLUTTER_SKIP_FETCH=1 pod install
 ```
 
 This writes `darwin/Frameworks/llama.xcframework`. As a fallback, build from
@@ -58,7 +58,7 @@ flutter test integration_test/model_smoke_test.dart -d macos \
 ## Usage
 
 ```dart
-final llama = LlamaFlutter();
+final llama = LlamaCppFlutter();
 final session = await llama.loadModel('/path/to/model.gguf');
 
 await for (final token in session.generate('Hello, world!')) {

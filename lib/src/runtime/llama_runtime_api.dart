@@ -4,7 +4,7 @@ import '../models/model_spec.dart';
 
 /// Browser asset URL for the wllama WebAssembly runtime.
 const String llamaWasmAssetPath =
-    'assets/packages/llama_flutter/lib/assets/wasm/wllama.wasm';
+    'assets/packages/llama_cpp_flutter/lib/assets/wasm/wllama.wasm';
 
 /// Reports model load/download progress as a value from 0 to 1.
 typedef LlamaLoadProgress = void Function(double progress);

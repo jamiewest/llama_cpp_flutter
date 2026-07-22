@@ -4,7 +4,7 @@
 /// `chat_template.jinja`, validated byte-for-byte against fixtures generated
 /// from that template (see `tool/gemma_fixtures/`). It converts
 /// Microsoft.Extensions.AI [ChatMessage]s + tool declarations into the Gemma 4
-/// wire format so the result can be fed straight to `LlamaFlutter.generate`.
+/// wire format so the result can be fed straight to `LlamaCppFlutter.generate`.
 ///
 /// Two deliberate conventions:
 ///   * No `<bos>` is emitted — the native tokenizer adds BOS, so emitting it
@@ -25,7 +25,7 @@ class GemmaPrompt {
     this.media = const <Uint8List>[],
   });
 
-  /// The formatted prompt, ready to pass to `LlamaFlutter.generate`.
+  /// The formatted prompt, ready to pass to `LlamaCppFlutter.generate`.
   final String text;
 
   /// Strings that terminate a generation turn. See
@@ -234,7 +234,7 @@ class GemmaChatTemplate {
 
   /// Parses one raw generated model turn into prose plus any tool calls.
   ///
-  /// [generated] is the text emitted by `LlamaFlutter.generate` for a single
+  /// [generated] is the text emitted by `LlamaCppFlutter.generate` for a single
   /// model turn — with the stop sequence already stripped, so any
   /// `<|tool_call>…<tool_call|>` blocks are complete. Thinking-channel content
   /// is removed. Synthetic sequential [FunctionCallContent.callId]s are

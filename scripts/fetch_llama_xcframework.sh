@@ -12,17 +12,16 @@
 set -euo pipefail
 
 # pwd -P: resolve symlinks — under Flutter/CocoaPods this script runs through
-# .symlinks/plugins/llama_flutter, and the repo root only exists relative to
-# the physical package location.
+# .symlinks/plugins/llama_cpp_flutter, and tool/versions.env only exists
+# relative to the physical package location.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 PACKAGE_DIR="$(dirname "$SCRIPT_DIR")"
-REPO_ROOT="$(cd "$PACKAGE_DIR/../.." && pwd -P)"
 FRAMEWORKS_DIR="$PACKAGE_DIR/darwin/Frameworks"
 DEST="$FRAMEWORKS_DIR/llama.xcframework"
 MARKER="$FRAMEWORKS_DIR/.llama.xcframework.sha256"
 
-# shellcheck source=../../../tool/versions.env
-source "$REPO_ROOT/tool/versions.env"
+# shellcheck source=../tool/versions.env
+source "$PACKAGE_DIR/tool/versions.env"
 
 TAG="${LLAMA_CPP_TAG_OVERRIDE:-$LLAMA_CPP_TAG}"
 EXPECTED="$LLAMA_XCFRAMEWORK_ZIP_SHA256"

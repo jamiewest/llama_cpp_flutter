@@ -5,8 +5,8 @@
 import FlutterMacOS
 import Foundation
 
-import llama_flutter
+import llama_cpp_flutter
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
-  LlamaFlutterPlugin.register(with: registry.registrar(forPlugin: "LlamaFlutterPlugin"))
+  LlamaCppFlutterPlugin.register(with: registry.registrar(forPlugin: "LlamaCppFlutterPlugin"))
 }

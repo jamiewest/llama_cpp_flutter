@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:llama_flutter/bridge.dart';
+import 'package:llama_cpp_flutter/bridge.dart';
 
 /// End-to-end smoke test against the vendored llama.xcframework: loads a real
 /// GGUF model and streams a short generation, exercising model load, the
@@ -18,7 +18,7 @@ void main() {
   test('loads a model and generates tokens', skip: modelPath.isEmpty
       ? 'Pass --dart-define=MODEL_PATH=/path/to/model.gguf'
       : false, () async {
-    final llama = LlamaFlutter();
+    final llama = LlamaCppFlutter();
     final session = await llama.loadModel(
       modelPath,
       contextSize: 512,

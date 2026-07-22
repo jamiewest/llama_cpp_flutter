@@ -669,7 +669,7 @@ class LlamaHostApi {
 
   /// Loads the model and returns an opaque session id.
   Future<int> loadModel(ModelLoadRequest request) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_flutter.LlamaHostApi.loadModel$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.loadModel$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -689,7 +689,7 @@ class LlamaHostApi {
 
   /// Starts generation; tokens arrive on the [LlamaTokenStream] event channel.
   Future<void> startGeneration(GenerationRequest request) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_flutter.LlamaHostApi.startGeneration$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.startGeneration$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -708,7 +708,7 @@ class LlamaHostApi {
 
   /// Requests cancellation of an in-flight generation for [sessionId].
   Future<void> cancelGeneration(int sessionId) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_flutter.LlamaHostApi.cancelGeneration$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.cancelGeneration$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -732,7 +732,7 @@ class LlamaHostApi {
   /// holds no reusable cache (no file is written). Runs on the session's
   /// serial queue, so it cannot interleave with generation.
   Future<int> saveSessionState(int sessionId, String path, int? sequenceId) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_flutter.LlamaHostApi.saveSessionState$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.saveSessionState$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -759,7 +759,7 @@ class LlamaHostApi {
   /// empty cache in that case, so the next generation simply prefills from
   /// scratch.
   Future<int> loadSessionState(int sessionId, String path, int? sequenceId) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_flutter.LlamaHostApi.loadSessionState$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.loadSessionState$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -785,7 +785,7 @@ class LlamaHostApi {
   /// snapshotting. Runs on the session's serial queue, so it cannot
   /// interleave with generation.
   Future<int> getSessionStateSize(int sessionId, int? sequenceId) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_flutter.LlamaHostApi.getSessionStateSize$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.getSessionStateSize$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -812,7 +812,7 @@ class LlamaHostApi {
   /// [key] is replaced. Returns zero counts when the sequence holds no
   /// reusable cache (nothing is stashed).
   Future<StashResult> stashSessionState(int sessionId, int sequenceId, String key) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_flutter.LlamaHostApi.stashSessionState$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.stashSessionState$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -837,7 +837,7 @@ class LlamaHostApi {
   /// Returns the number of tokens restored; fails (throws) when [key] has
   /// no entry or the copy fails, leaving the sequence's cache empty.
   Future<int> restoreStashedState(int sessionId, int sequenceId, String key) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_flutter.LlamaHostApi.restoreStashedState$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.restoreStashedState$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -858,7 +858,7 @@ class LlamaHostApi {
   /// Removes the stash entry under [key], freeing its memory. Returns the
   /// number of bytes freed (`0` when no entry existed).
   Future<int> dropStashedState(int sessionId, String key) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_flutter.LlamaHostApi.dropStashedState$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.dropStashedState$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -879,7 +879,7 @@ class LlamaHostApi {
   /// Erases one sequence's KV cache and prompt ledger. Queued behind any
   /// in-flight generation like every other session operation.
   Future<void> clearSequence(int sessionId, int sequenceId) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_flutter.LlamaHostApi.clearSequence$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.clearSequence$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -906,7 +906,7 @@ class LlamaHostApi {
   /// micro-batch size fixed at load (`n_ubatch`); raising it beyond that
   /// requires reloading the model.
   Future<void> setImageTokenBudget(int sessionId, int? imageTokenBudget) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_flutter.LlamaHostApi.setImageTokenBudget$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.setImageTokenBudget$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -925,7 +925,7 @@ class LlamaHostApi {
 
   /// Frees the model/context associated with [sessionId].
   Future<void> disposeSession(int sessionId) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_flutter.LlamaHostApi.disposeSession$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.llama_cpp_flutter.LlamaHostApi.disposeSession$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -952,7 +952,7 @@ Stream<TokenEvent> streamTokens( {String instanceName = ''}) {
     instanceName = '.$instanceName';
   }
   final EventChannel streamTokensChannel =
-      EventChannel('dev.flutter.pigeon.llama_flutter.LlamaTokenStream.streamTokens$instanceName', pigeonMethodCodec);
+      EventChannel('dev.flutter.pigeon.llama_cpp_flutter.LlamaTokenStream.streamTokens$instanceName', pigeonMethodCodec);
   return streamTokensChannel.receiveBroadcastStream().map((dynamic event) {
     return event as TokenEvent;
   });

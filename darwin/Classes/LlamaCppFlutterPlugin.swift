@@ -33,13 +33,13 @@ final class LlamaTokenStreamHandler: StreamTokensStreamHandler {
   }
 }
 
-public final class LlamaFlutterPlugin: NSObject, FlutterPlugin, LlamaHostApi {
+public final class LlamaCppFlutterPlugin: NSObject, FlutterPlugin, LlamaHostApi {
   private let streamHandler = LlamaTokenStreamHandler()
   private var sessions: [Int64: LlamaSession] = [:]
   private var nextSessionId: Int64 = 1
   private let lock = NSLock()
   private let loadQueue = DispatchQueue(
-    label: "dev.llama_flutter.load", qos: .userInitiated)
+    label: "dev.llama_cpp_flutter.load", qos: .userInitiated)
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     #if os(iOS)
@@ -47,7 +47,7 @@ public final class LlamaFlutterPlugin: NSObject, FlutterPlugin, LlamaHostApi {
     #elseif os(macOS)
       let messenger = registrar.messenger
     #endif
-    let instance = LlamaFlutterPlugin()
+    let instance = LlamaCppFlutterPlugin()
     llama_backend_init()
     LlamaHostApiSetup.setUp(binaryMessenger: messenger, api: instance)
     StreamTokensStreamHandler.register(
