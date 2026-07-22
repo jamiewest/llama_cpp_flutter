@@ -1,0 +1,23 @@
+PODS:
+  - FlutterMacOS (1.0.0)
+  - llama_flutter (0.1.0):
+    - Flutter
+    - FlutterMacOS
+
+DEPENDENCIES:
+  - FlutterMacOS (from `Flutter/ephemeral`)
+  - llama_flutter (from `Flutter/ephemeral/.symlinks/plugins/llama_flutter/darwin`)
+
+EXTERNAL SOURCES:
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+  llama_flutter:
+    :path: Flutter/ephemeral/.symlinks/plugins/llama_flutter/darwin
+
+SPEC CHECKSUMS:
+  FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  llama_flutter: 6fc76155ae3888bb0bbb424f7f4613031df741ee
+
+PODFILE CHECKSUM: c4dda72bffbbf606876d102a78d4d3a0e4c9b017
+
+COCOAPODS: 1.16.2

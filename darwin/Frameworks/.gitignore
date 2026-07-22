@@ -1,0 +1,4 @@
+# The xcframework is large and built locally via
+# scripts/build_llama_xcframework.sh. Do not commit it.
+llama.xcframework/
+.llama.xcframework.sha256

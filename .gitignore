@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+*.iml
+
+# Dart & Flutter
+.dart_tool/
+.packages
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Vendored llama.cpp xcframework — fetched by scripts/fetch_llama_xcframework.sh
+darwin/Frameworks/llama.xcframework/
+darwin/Frameworks/.llama.xcframework.sha256
