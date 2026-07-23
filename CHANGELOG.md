@@ -1,9 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.3.1
 
-- Upstream: llama.cpp pin bumped `b10069` → `b10091` (native
-  xcframework). Vendored wllama wasm confirmed at `@wllama/wllama` 3.5.1.
+- Upstream: llama.cpp `b10069` → `b10091` on **both** backends. The
+  native xcframework re-pins to the `b10091` release, and the vendored
+  wasm is now built from wllama 3.5.1 sources with its llama.cpp
+  submodule at that same tag (previously the stock npm build, whose
+  embedded llama.cpp dated from June 2026). Keep loading
+  `@wllama/wllama` 3.5.1 on the page — the JS pairing is unchanged.
+  Verified in-browser: model download, load, and streamed generation.
 - New maintenance pipeline: `tool/update_deps.sh` (native re-pin with
   ABI check), `tool/update_wllama.sh` (wasm refresh with recorded
   provenance), `tool/check_llama_ext_abi.sh` (staging-ABI tripwire), a CI
