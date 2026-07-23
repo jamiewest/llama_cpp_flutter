@@ -9,6 +9,78 @@ const String llamaWasmAssetPath =
 /// Reports model load/download progress as a value from 0 to 1.
 typedef LlamaLoadProgress = void Function(double progress);
 
+/// The author of a [LlamaChatTurn].
+enum LlamaChatRole {
+  /// Instructions framing the conversation.
+  system,
+
+  /// The human (or calling application) side of the conversation.
+  user,
+
+  /// The model's own prior output.
+  assistant,
+
+  /// The result of a tool invocation the assistant requested.
+  ///
+  /// Engines whose wire format has no tool role (wllama's chat-completion
+  /// API) fold tool turns into user turns.
+  tool,
+}
+
+/// One piece of a turn's content, in the order the author arranged it.
+///
+/// Turns hold an ordered `List<LlamaContentPart>` so interleavings like
+/// "compare [image 1] with [image 2]" survive intact rather than being
+/// split into separate text/media buckets.
+sealed class LlamaContentPart {
+  const LlamaContentPart();
+}
+
+/// A run of text within a turn.
+final class LlamaTextPart extends LlamaContentPart {
+  /// Creates a text part.
+  const LlamaTextPart(this.text);
+
+  /// The text content.
+  final String text;
+
+  @override
+  String toString() => 'LlamaTextPart(${text.length} chars)';
+}
+
+/// An encoded image (PNG/JPEG/...) within a turn.
+final class LlamaImagePart extends LlamaContentPart {
+  /// Creates an image part from raw encoded bytes.
+  const LlamaImagePart(this.bytes, {this.mimeType});
+
+  /// The encoded image bytes.
+  final Uint8List bytes;
+
+  /// The declared media type (e.g. `image/png`), when known. Engines
+  /// generally sniff the actual format from [bytes].
+  final String? mimeType;
+
+  @override
+  String toString() => 'LlamaImagePart(${bytes.length} bytes)';
+}
+
+/// An encoded audio clip (e.g. WAV) within a turn, for models with an
+/// audio-capable projector (Gemma 4).
+final class LlamaAudioPart extends LlamaContentPart {
+  /// Creates an audio part from raw encoded bytes.
+  const LlamaAudioPart(this.bytes, {this.mimeType});
+
+  /// The encoded audio bytes.
+  final Uint8List bytes;
+
+  /// The declared media type (e.g. `audio/wav`), when known. Engines
+  /// generally sniff the actual format from [bytes].
+  final String? mimeType;
+
+  @override
+  String toString() => 'LlamaAudioPart(${bytes.length} bytes)';
+}
+
 /// One conversation turn in a structured, engine-neutral shape.
 ///
 /// [LlamaSession.generate] receives the fully rendered prompt string, which
@@ -17,31 +89,42 @@ typedef LlamaLoadProgress = void Function(double progress);
 /// image turns) additionally need the conversation as discrete turns; this
 /// type carries that view alongside the rendered prompt.
 class LlamaChatTurn {
-  /// Creates a turn with [role], its concatenated [text], and any [images] or
-  /// [audio].
-  const LlamaChatTurn({
-    required this.role,
-    required this.text,
-    this.images = const <Uint8List>[],
-    this.audio = const <Uint8List>[],
-  });
+  /// Creates a turn with [role] and its ordered content [parts].
+  const LlamaChatTurn({required this.role, required this.parts});
 
-  /// The chat role: `'system'`, `'user'`, or `'assistant'`.
-  final String role;
+  /// Creates a text-only turn.
+  LlamaChatTurn.text(this.role, String text)
+    : parts = <LlamaContentPart>[LlamaTextPart(text)];
 
-  /// The turn's text content.
-  final String text;
+  /// The turn's author.
+  final LlamaChatRole role;
 
-  /// Raw encoded image bytes attached to this turn.
-  ///
-  /// Kept separate from [audio] because the message-level multimodal path
-  /// (wllama's chat-completion API) labels each content part by kind
-  /// (`{type: 'image'}` vs `{type: 'audio'}`).
-  final List<Uint8List> images;
+  /// The turn's content, in author order.
+  final List<LlamaContentPart> parts;
 
-  /// Raw encoded audio bytes attached to this turn (e.g. WAV), for models with
-  /// an audio-capable projector (Gemma 4). See [images] for why kinds are split.
-  final List<Uint8List> audio;
+  /// The turn's text: every [LlamaTextPart] concatenated in order.
+  String get text =>
+      parts.whereType<LlamaTextPart>().map((part) => part.text).join();
+
+  /// The bytes of every [LlamaImagePart], in order.
+  List<Uint8List> get images => <Uint8List>[
+    for (final part in parts)
+      if (part is LlamaImagePart) part.bytes,
+  ];
+
+  /// The bytes of every [LlamaAudioPart], in order.
+  List<Uint8List> get audio => <Uint8List>[
+    for (final part in parts)
+      if (part is LlamaAudioPart) part.bytes,
+  ];
+
+  // Deliberately no ==/hashCode: turns carry raw media buffers, and
+  // byte-content equality over them is both expensive and rarely what a
+  // caller comparing turns means.
+  @override
+  String toString() =>
+      'LlamaChatTurn(role: ${role.name}, text: ${text.length} chars, '
+      'images: ${images.length}, audio: ${audio.length})';
 }
 
 /// Why a generation run stopped, engine-neutral.
@@ -128,6 +211,38 @@ class LlamaGenerationStats {
     final seconds = elapsed.inMicroseconds / Duration.microsecondsPerSecond;
     return seconds > 0 ? tokens / seconds : 0;
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is LlamaGenerationStats &&
+      other.promptTokenCount == promptTokenCount &&
+      other.cachedTokenCount == cachedTokenCount &&
+      other.generatedTokenCount == generatedTokenCount &&
+      other.finishReason == finishReason &&
+      other.prefillDuration == prefillDuration &&
+      other.decodeDuration == decodeDuration &&
+      other.draftedTokenCount == draftedTokenCount &&
+      other.acceptedTokenCount == acceptedTokenCount;
+
+  @override
+  int get hashCode => Object.hash(
+    promptTokenCount,
+    cachedTokenCount,
+    generatedTokenCount,
+    finishReason,
+    prefillDuration,
+    decodeDuration,
+    draftedTokenCount,
+    acceptedTokenCount,
+  );
+
+  @override
+  String toString() =>
+      'LlamaGenerationStats(prompt: $promptTokenCount, '
+      'cached: $cachedTokenCount, generated: $generatedTokenCount, '
+      'finishReason: ${finishReason?.name}, '
+      'prefill: $prefillDuration, decode: $decodeDuration, '
+      'drafted: $draftedTokenCount, accepted: $acceptedTokenCount)';
 }
 
 /// Invoked once per generation with the run's token accounting.
@@ -145,7 +260,7 @@ class LlamaSessionCapabilities {
     this.canStashState = false,
     this.canSetImageTokenBudget = false,
     this.maxSequences = 1,
-  });
+  }) : assert(maxSequences > 0, 'maxSequences must be at least 1');
 
   /// Whether [LlamaSession.saveState] writes a restorable snapshot.
   ///
@@ -176,6 +291,31 @@ class LlamaSessionCapabilities {
   /// `1` means the classic single-conversation session; sequence arguments
   /// other than `0` are then invalid.
   final int maxSequences;
+
+  @override
+  bool operator ==(Object other) =>
+      other is LlamaSessionCapabilities &&
+      other.canPersistState == canPersistState &&
+      other.reportsStateSize == reportsStateSize &&
+      other.canStashState == canStashState &&
+      other.canSetImageTokenBudget == canSetImageTokenBudget &&
+      other.maxSequences == maxSequences;
+
+  @override
+  int get hashCode => Object.hash(
+    canPersistState,
+    reportsStateSize,
+    canStashState,
+    canSetImageTokenBudget,
+    maxSequences,
+  );
+
+  @override
+  String toString() =>
+      'LlamaSessionCapabilities(canPersistState: $canPersistState, '
+      'reportsStateSize: $reportsStateSize, canStashState: $canStashState, '
+      'canSetImageTokenBudget: $canSetImageTokenBudget, '
+      'maxSequences: $maxSequences)';
 }
 
 /// Outcome of [LlamaSession.stashState]: what the in-memory copy covers.
@@ -188,6 +328,17 @@ typedef LlamaStashResult = ({int tokens, int bytes});
 ///
 /// Implementations must yield text with stop sequences removed and terminate at
 /// the first stop sequence.
+///
+/// ## Concurrency contract
+///
+/// A session runs at most one generation at a time, regardless of
+/// [LlamaSessionCapabilities.maxSequences] — sequences are independent
+/// KV caches sharing one loaded model, not parallel decode lanes. Calling
+/// [generate] while a run is in flight supersedes it: the engine cancels
+/// the current run and starts the newest call once cancellation completes
+/// (an intermediate superseded call's stream closes without emitting
+/// text). Callers that care about the superseded run's output should
+/// [cancel] and drain its stream before starting the next run.
 abstract interface class LlamaSession {
   /// Generates text for [prompt], yielding decoded pieces as they arrive.
   ///
@@ -201,6 +352,12 @@ abstract interface class LlamaSession {
   ///
   /// [onStats] is invoked once with the run's token accounting when the
   /// engine reports it; engines that cannot count tokens may never call it.
+  ///
+  /// [sequenceId] selects which KV-cache sequence the run extends and must
+  /// be less than [LlamaSessionCapabilities.maxSequences]. Only one run
+  /// executes at a time even with multiple sequences; see the class docs
+  /// for how an overlapping call is handled. Cancelling the returned
+  /// stream's subscription cancels the run, same as [cancel].
   Stream<String> generate(
     String prompt, {
     int maxTokens = 256,
@@ -215,7 +372,13 @@ abstract interface class LlamaSession {
     LlamaStatsCallback? onStats,
   });
 
-  /// Requests cancellation of any in-flight generation.
+  /// Requests cancellation of the in-flight generation, if any.
+  ///
+  /// The generation stream then completes promptly without an error, and
+  /// when the engine reports stats the run's
+  /// [LlamaGenerationStats.finishReason] is
+  /// [LlamaFinishReason.cancelled]. Text already streamed remains valid.
+  /// A no-op when nothing is generating.
   Future<void> cancel();
 
   /// What this session can do beyond generating (state persistence, state
@@ -281,6 +444,11 @@ abstract interface class LlamaSession {
   Future<void> setImageTokenBudget(int? imageTokenBudget);
 
   /// Releases resources held by this session.
+  ///
+  /// Safe to call during generation: the in-flight run is abandoned and its
+  /// stream closes, though a stats callback may not be delivered. The
+  /// session, its streams, and any stashed state must not be used
+  /// afterwards.
   Future<void> dispose();
 }
 

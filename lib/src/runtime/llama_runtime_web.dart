@@ -25,8 +25,13 @@ const int _maxWebModelBytes = 0x7fffffff;
 const String _largeModelCacheDir = 'llama_cpp_flutter_large_models';
 
 /// Creates the wllama runtime for Flutter web.
-LlamaRuntime createLlamaRuntime({LoggerFactory? loggerFactory}) =>
-    WebLlamaRuntime(loggerFactory: loggerFactory);
+///
+/// [artifactCacheDirectory] is ignored: the web runtime streams models
+/// straight from their URLs into browser-managed storage.
+LlamaRuntime createLlamaRuntime({
+  String? artifactCacheDirectory,
+  LoggerFactory? loggerFactory,
+}) => WebLlamaRuntime(loggerFactory: loggerFactory);
 
 /// Loads GGUF models through a page-provided wllama JavaScript constructor.
 ///
@@ -605,23 +610,35 @@ final class _WebLlamaSession implements LlamaSession {
       false;
 
   /// Converts [turns] to wllama's OAI-style chat messages. Turns with media
-  /// carry `{type: 'image'|'audio', data: <bytes>}` parts (wllama accepts any
-  /// typed array where its types say `ArrayBuffer`); text-only turns use plain
-  /// string content.
+  /// carry `{type: 'image'|'audio', data: <bytes>}` parts in author order
+  /// (wllama accepts any typed array where its types say `ArrayBuffer`);
+  /// text-only turns use plain string content. Tool turns fold into user
+  /// turns — wllama's chat-completion API has no tool role.
   static List<Map<String, Object?>> _chatMessages(List<LlamaChatTurn> turns) =>
       <Map<String, Object?>>[
         for (final turn in turns)
           <String, Object?>{
-            'role': turn.role,
+            'role': switch (turn.role) {
+              LlamaChatRole.system => 'system',
+              LlamaChatRole.assistant => 'assistant',
+              LlamaChatRole.user || LlamaChatRole.tool => 'user',
+            },
             'content': turn.images.isEmpty && turn.audio.isEmpty
                 ? turn.text
                 : <Map<String, Object?>>[
-                    for (final image in turn.images)
-                      <String, Object?>{'type': 'image', 'data': image},
-                    for (final clip in turn.audio)
-                      <String, Object?>{'type': 'audio', 'data': clip},
-                    if (turn.text.isNotEmpty)
-                      <String, Object?>{'type': 'text', 'text': turn.text},
+                    for (final part in turn.parts)
+                      ...switch (part) {
+                        LlamaImagePart(:final bytes) => [
+                          <String, Object?>{'type': 'image', 'data': bytes},
+                        ],
+                        LlamaAudioPart(:final bytes) => [
+                          <String, Object?>{'type': 'audio', 'data': bytes},
+                        ],
+                        LlamaTextPart(:final text) => [
+                          if (text.isNotEmpty)
+                            <String, Object?>{'type': 'text', 'text': text},
+                        ],
+                      },
                   ],
           },
       ];

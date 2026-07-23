@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:agents/agents.dart';
+import 'package:llama_cpp_flutter/chat.dart';
 import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 import 'package:extensions/ai.dart';
 import 'package:extensions/system.dart';
@@ -278,7 +279,11 @@ void main() {
       expect(session.media, hasLength(1));
       final turns = session.turns;
       expect(turns, isNotNull);
-      expect(turns!.map((turn) => turn.role), ['system', 'assistant', 'user']);
+      expect(turns!.map((turn) => turn.role), [
+        LlamaChatRole.system,
+        LlamaChatRole.assistant,
+        LlamaChatRole.user,
+      ]);
       expect(turns.first.text, 'You are a helpful assistant.');
       expect(turns[1].images, isEmpty);
       expect(turns.last.text, 'What is in this picture?');
@@ -394,7 +399,7 @@ void main() {
   });
 
   group('chatTurnsFromMessages', () {
-    test('maps tool-role messages to user turns and skips non-image data', () {
+    test('keeps the tool role typed and skips non-image data', () {
       final turns = chatTurnsFromMessages([
         ChatMessage(
           role: ChatRole.tool,
@@ -411,9 +416,35 @@ void main() {
         ),
       ]);
 
-      expect(turns.first.role, 'user');
+      expect(turns.first.role, LlamaChatRole.tool);
       expect(turns.first.text, '{"result": 42}');
       expect(turns.last.images, isEmpty);
+    });
+
+    test('preserves interleaved text and media ordering', () {
+      final first = Uint8List.fromList([1]);
+      final second = Uint8List.fromList([2]);
+      final turns = chatTurnsFromMessages([
+        ChatMessage(
+          role: ChatRole.user,
+          contents: [
+            TextContent('Compare'),
+            DataContent(first, mediaType: 'image/png'),
+            TextContent('with'),
+            DataContent(second, mediaType: 'image/png'),
+          ],
+        ),
+      ]);
+
+      final parts = turns.single.parts;
+      expect(parts, hasLength(4));
+      expect((parts[0] as LlamaTextPart).text, 'Compare');
+      expect((parts[1] as LlamaImagePart).bytes, same(first));
+      expect((parts[1] as LlamaImagePart).mimeType, 'image/png');
+      expect((parts[2] as LlamaTextPart).text, 'with');
+      expect((parts[3] as LlamaImagePart).bytes, same(second));
+      expect(turns.single.text, 'Comparewith');
+      expect(turns.single.images, [same(first), same(second)]);
     });
   });
 

@@ -68,9 +68,10 @@ class AgentHandle {
   /// Creates a handle. Constructed by the orchestrator.
   AgentHandle({
     required this.profile,
-    required this._chatClientFactory,
-    required this._invalidateSnapshot,
-  });
+    required ChatClient Function() chatClientFactory,
+    required Future<void> Function() invalidateSnapshot,
+  }) : _chatClientFactory = chatClientFactory,
+       _invalidateSnapshot = invalidateSnapshot;
 
   /// The profile this handle was registered with.
   final AgentProfile profile;

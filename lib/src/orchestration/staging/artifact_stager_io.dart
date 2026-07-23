@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 
+import '../../runtime/gguf_metadata.dart';
+import '../../runtime/gguf_metadata_file.dart';
+import '../memory/memory_estimator.dart';
 import 'staged_artifacts.dart';
 
 /// Stages [spec]'s artifacts locally and reads a memory estimate from the

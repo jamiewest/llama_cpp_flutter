@@ -1,11 +1,12 @@
 import 'dart:typed_data';
 
+import 'package:llama_cpp_flutter/chat.dart';
 import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 import 'package:llama_cpp_flutter/src/runtime/llama_runtime_native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:llama_cpp_flutter/bridge.dart' as native;
 
-final class _FakeNativeSession implements native.LlamaSession {
+final class _FakeNativeSession implements native.LlamaBridgeSession {
   _FakeNativeSession({this.stats});
 
   /// Stats reported through `onStats` when set.
@@ -97,7 +98,7 @@ final class _RecordingLlamaCppFlutter implements native.LlamaCppFlutter {
   int? maxSequences;
 
   @override
-  Future<native.LlamaSession> loadModel(
+  Future<native.LlamaBridgeSession> loadModel(
     String path, {
     int contextSize = 4096,
     int gpuLayers = 999,

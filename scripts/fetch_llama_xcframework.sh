@@ -5,9 +5,10 @@
 # checksum live in tool/versions.env at the repo root (see CLAUDE.md).
 #
 # Idempotent: skips the download when the installed framework already matches
-# the pinned tag + checksum. Override the pin with LLAMA_CPP_TAG_OVERRIDE
-# (checksum verification is skipped for overridden tags unless
-# LLAMA_XCFRAMEWORK_ZIP_SHA256_OVERRIDE is also set).
+# the pinned tag + checksum. Override the pin with LLAMA_CPP_TAG_OVERRIDE,
+# which requires the matching LLAMA_XCFRAMEWORK_ZIP_SHA256_OVERRIDE — the
+# script refuses to download an unverified binary unless
+# LLAMA_CPP_ALLOW_UNVERIFIED=1 explicitly opts out (development only).
 
 set -euo pipefail
 
@@ -28,10 +29,22 @@ EXPECTED="$LLAMA_XCFRAMEWORK_ZIP_SHA256"
 if [ -n "${LLAMA_CPP_TAG_OVERRIDE:-}" ]; then
   if [ -n "${LLAMA_XCFRAMEWORK_ZIP_SHA256_OVERRIDE:-}" ]; then
     EXPECTED="$LLAMA_XCFRAMEWORK_ZIP_SHA256_OVERRIDE"
-  else
+  elif [ "${LLAMA_CPP_ALLOW_UNVERIFIED:-0}" = "1" ]; then
     EXPECTED=""
-    echo "WARNING: LLAMA_CPP_TAG_OVERRIDE=$TAG set without" >&2
-    echo "LLAMA_XCFRAMEWORK_ZIP_SHA256_OVERRIDE — checksum verification SKIPPED." >&2
+    echo "##########################################################" >&2
+    echo "# WARNING: downloading llama.xcframework for $TAG" >&2
+    echo "# WITHOUT checksum verification" >&2
+    echo "# (LLAMA_CPP_ALLOW_UNVERIFIED=1). Development only —" >&2
+    echo "# never ship a build produced this way." >&2
+    echo "##########################################################" >&2
+  else
+    echo "error: LLAMA_CPP_TAG_OVERRIDE=$TAG has no pinned checksum." >&2
+    echo "Refusing to download an unverified binary. Either supply the" >&2
+    echo "zip's checksum:" >&2
+    echo "  LLAMA_XCFRAMEWORK_ZIP_SHA256_OVERRIDE=<sha256 of llama-$TAG-xcframework.zip>" >&2
+    echo "or, for local development only, opt out of verification:" >&2
+    echo "  LLAMA_CPP_ALLOW_UNVERIFIED=1" >&2
+    exit 1
   fi
 fi
 
@@ -45,10 +58,17 @@ sha256() {
   fi
 }
 
-if [ -d "$DEST" ] && [ -f "$MARKER" ] && [ -n "$EXPECTED" ] \
-  && [ "$(cat "$MARKER")" = "$TAG $EXPECTED" ]; then
-  echo "llama.xcframework ($TAG) is already installed and verified"
-  exit 0
+if [ -d "$DEST" ] && [ -f "$MARKER" ]; then
+  if [ -n "$EXPECTED" ] && [ "$(cat "$MARKER")" = "$TAG $EXPECTED" ]; then
+    echo "llama.xcframework ($TAG) is already installed and verified"
+    exit 0
+  fi
+  # Unverified override: any prior install of the same tag counts, since
+  # there is no pinned checksum to compare against.
+  if [ -z "$EXPECTED" ] && [ "$(cut -d' ' -f1 "$MARKER")" = "$TAG" ]; then
+    echo "llama.xcframework ($TAG) is already installed (unverified override)"
+    exit 0
+  fi
 fi
 
 WORK="$(mktemp -d)"

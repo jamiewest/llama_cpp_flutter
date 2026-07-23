@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.2.0
+
+Pre-1.0 API cleanup release. Pinned upstream: llama.cpp `b10069`
+(xcframework, sha256-verified); wllama wasm vendored as a Flutter asset.
+
+### Breaking changes
+
+- The bridge session type is renamed `LlamaSession` → `LlamaBridgeSession`
+  (`bridge.dart`); the neutral `LlamaSession` in the main entrypoint is
+  unchanged.
+- `LlamaChatTurn` now carries a typed role (`LlamaChatRole`, including
+  `tool`) and ordered content parts (`LlamaContentPart`:
+  `LlamaTextPart` / `LlamaImagePart` / `LlamaAudioPart`) instead of a role
+  string with separate `text`/`images`/`audio` fields. The old fields
+  remain as read-only getters derived from `parts`; construct turns with
+  `parts:` or `LlamaChatTurn.text(...)`. Interleaved text/media ordering
+  is now preserved end to end (the web runtime sends parts in author
+  order).
+- The main entrypoint exports far less. Concrete chat formats, templates,
+  and stream decoders moved to `package:llama_cpp_flutter/chat.dart`; GGUF
+  metadata reading and artifact cache naming to
+  `package:llama_cpp_flutter/gguf.dart`; the orchestration layer to
+  `package:llama_cpp_flutter/orchestration.dart`. `resolveChatFormat`,
+  `detectChatFormatNameForGguf`, `createLlamaChatClient`, `ModelSpec`,
+  `ModelDownloader`, and the runtime API stay in the main entrypoint.
+- Overriding the pinned xcframework tag
+  (`LLAMA_CPP_TAG_OVERRIDE`) now requires the matching
+  `LLAMA_XCFRAMEWORK_ZIP_SHA256_OVERRIDE`, or an explicit
+  `LLAMA_CPP_ALLOW_UNVERIFIED=1` opt-out (development only); previously
+  verification was silently skipped.
+
+### Changed
+
+- SDK floor lowered from Dart `^3.12.0` / Flutter `>=3.44.0` to Dart
+  `^3.11.5` / Flutter `>=3.41.7` (the floor now comes from the `agents`
+  dependency, not this package).
+- `createLlamaRuntime()` gains `artifactCacheDirectory` for
+  download-on-load, and throws a clear `UnsupportedError` on IO platforms
+  without a native backend (Android, Windows, Linux) instead of failing
+  later with a missing-plugin error.
+- `LlamaSession` documents its concurrency and lifecycle contract (one
+  generation at a time; overlapping `generate` supersedes; `cancel` and
+  dispose-during-generation semantics).
+- Core data classes (`ModelSpec`, `SamplingDefaults`,
+  `LlamaGenerationStats`, `LlamaSessionCapabilities`, `ImageTiling`,
+  `AgentSnapshot`) gain value equality and `toString`;
+  `LlamaSessionCapabilities` and `ModelSpec` assert their invariants.
+
 ## 0.1.0
 
 Initial release.

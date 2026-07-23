@@ -2,7 +2,6 @@
 library;
 
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:agents/agents.dart'
     show AgentRequestMessageSourceType, ChatMessageExtensions;
@@ -122,30 +121,33 @@ messagesWithRuntimeContext(
 /// Builds the engine-neutral structured view of [messages] passed to
 /// [LlamaSession.generate] alongside the rendered prompt for image turns.
 ///
-/// Roles map to the wire names wllama's chat-completion API accepts
-/// (`system`/`user`/`assistant`); tool-role results fold into user-role text
-/// turns. Media is extracted with the same rule the [ChatFormat] templates
-/// use — [DataContent] with non-null bytes — split by kind so the message-level
-/// multimodal path can label each content part (`image` vs `audio`).
+/// Content parts keep the author's ordering (text and media interleaved as
+/// written). Media is extracted with the same rule the [ChatFormat]
+/// templates use — [DataContent] with non-null bytes — typed by kind so the
+/// message-level multimodal path can label each part (`image` vs `audio`).
+/// Other content kinds (tool calls, tool results) have no part
+/// representation and are dropped; their text, if any, is what reaches the
+/// model through the rendered prompt.
 List<LlamaChatTurn> chatTurnsFromMessages(Iterable<ChatMessage> messages) =>
     <LlamaChatTurn>[
       for (final message in messages)
         LlamaChatTurn(
           role: message.role == ChatRole.system
-              ? 'system'
+              ? LlamaChatRole.system
               : message.role == ChatRole.assistant
-              ? 'assistant'
-              : 'user',
-          text: message.text.trim(),
-          images: <Uint8List>[
-            for (final data in message.contents.whereType<DataContent>())
-              if (data.data != null && data.hasTopLevelMediaType('image'))
-                data.data!,
-          ],
-          audio: <Uint8List>[
-            for (final data in message.contents.whereType<DataContent>())
-              if (data.data != null && data.hasTopLevelMediaType('audio'))
-                data.data!,
+              ? LlamaChatRole.assistant
+              : message.role == ChatRole.tool
+              ? LlamaChatRole.tool
+              : LlamaChatRole.user,
+          parts: <LlamaContentPart>[
+            for (final content in message.contents)
+              if (content is TextContent)
+                LlamaTextPart(content.text)
+              else if (content is DataContent && content.data != null)
+                if (content.hasTopLevelMediaType('image'))
+                  LlamaImagePart(content.data!, mimeType: content.mediaType)
+                else if (content.hasTopLevelMediaType('audio'))
+                  LlamaAudioPart(content.data!, mimeType: content.mediaType),
           ],
         ),
     ];

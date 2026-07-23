@@ -1,7 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
+
+import 'package:llama_cpp_flutter/orchestration.dart';
 
 void main() {
   late Directory root;

@@ -58,6 +58,24 @@ class ImageTiling {
   bool applies(ui.Image image) =>
       (columns > 1 || rows > 1) &&
       (image.width >= minimumEdge || image.height >= minimumEdge);
+
+  @override
+  bool operator ==(Object other) =>
+      other is ImageTiling &&
+      other.columns == columns &&
+      other.rows == rows &&
+      other.overlap == overlap &&
+      other.minimumEdge == minimumEdge &&
+      other.includeFullImage == includeFullImage;
+
+  @override
+  int get hashCode =>
+      Object.hash(columns, rows, overlap, minimumEdge, includeFullImage);
+
+  @override
+  String toString() =>
+      'ImageTiling(columns: $columns, rows: $rows, overlap: $overlap, '
+      'minimumEdge: $minimumEdge, includeFullImage: $includeFullImage)';
 }
 
 /// Splits [bytes] (an encoded image) into [tiling]'s grid of PNG crops.

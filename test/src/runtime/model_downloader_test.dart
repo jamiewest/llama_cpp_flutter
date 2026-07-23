@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:llama_cpp_flutter/gguf.dart';
+import 'package:llama_cpp_flutter/chat.dart';
 import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
 

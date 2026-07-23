@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
+import 'package:llama_cpp_flutter/gguf.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

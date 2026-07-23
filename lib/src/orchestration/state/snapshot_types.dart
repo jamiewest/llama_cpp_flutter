@@ -20,4 +20,20 @@ class AgentSnapshot {
   /// The `n_ctx` the session had when the snapshot was taken. A snapshot
   /// can only be restored into a context at least [tokens] large.
   final int contextTokens;
+
+  @override
+  bool operator ==(Object other) =>
+      other is AgentSnapshot &&
+      other.agentId == agentId &&
+      other.statePath == statePath &&
+      other.tokens == tokens &&
+      other.contextTokens == contextTokens;
+
+  @override
+  int get hashCode => Object.hash(agentId, statePath, tokens, contextTokens);
+
+  @override
+  String toString() =>
+      'AgentSnapshot(agentId: $agentId, statePath: $statePath, '
+      'tokens: $tokens, contextTokens: $contextTokens)';
 }

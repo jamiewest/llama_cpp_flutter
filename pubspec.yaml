@@ -1,15 +1,22 @@
 name: llama_cpp_flutter
 description: >-
-  On-device LLM inference for Flutter, backed by llama.cpp: a vendored
-  xcframework with a Pigeon bridge on iOS/macOS, wllama on web, plus GGUF chat
-  clients for the agents framework and memory-aware multi-agent orchestration
-  over one loaded model.
-version: 0.1.0
+  On-device LLM inference for Flutter: llama.cpp with Metal on iOS/macOS,
+  wllama on web. Streaming sessions, chat formats, model downloads, and
+  optional agents integration.
+version: 0.2.0
 repository: https://github.com/jamiewest/llama_cpp_flutter
+topics:
+  - llm
+  - llama-cpp
+  - gguf
+  - on-device-ai
+  - local-ai
 
+# Floor set by the `agents` dependency (^3.11.5); this package's own code
+# needs only Dart 3.9. Flutter 3.41.7 is the first stable with Dart 3.11.5.
 environment:
-  sdk: ^3.12.0
-  flutter: ">=3.44.0"
+  sdk: ^3.11.5
+  flutter: ">=3.41.7"
 
 dependencies:
   agents: ^1.5.0

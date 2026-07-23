@@ -1,4 +1,4 @@
-import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
+import 'package:llama_cpp_flutter/chat.dart';
 import 'package:extensions/ai.dart';
 import 'package:flutter_test/flutter_test.dart';
 

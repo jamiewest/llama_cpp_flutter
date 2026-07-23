@@ -4,9 +4,9 @@
 /// worker isolate, so model loading and token streaming never block the UI.
 ///
 /// Most consumers want the neutral, cross-platform API in
-/// `package:llama_cpp_flutter/llama_cpp_flutter.dart` instead; this entrypoint is the
-/// raw bridge it wraps (kept separate because both layers define a
-/// `LlamaSession` type).
+/// `package:llama_cpp_flutter/llama_cpp_flutter.dart` instead; this entrypoint
+/// is the raw bridge it wraps, kept separate so Apple-specific surface stays
+/// out of the cross-platform API.
 library;
 
 import 'dart:typed_data';
@@ -20,8 +20,8 @@ export 'src/llama_isolate.dart'
     show LlamaException, LlamaFinishReason, LlamaGenerationStats;
 
 /// A loaded model session, returned by [LlamaCppFlutter.loadModel].
-class LlamaSession {
-  LlamaSession._(this._isolate, this.id, this.maxSequences);
+class LlamaBridgeSession {
+  LlamaBridgeSession._(this._isolate, this.id, this.maxSequences);
 
   final LlamaIsolate _isolate;
 
@@ -159,7 +159,7 @@ class LlamaSession {
 /// Entry point for llama.cpp inference.
 ///
 /// Create one instance, [loadModel] one or more GGUF files, then [generate]
-/// against the returned [LlamaSession]. Call [shutdown] when done to tear down
+/// against the returned [LlamaBridgeSession]. Call [shutdown] when done to tear down
 /// the worker isolate.
 class LlamaCppFlutter {
   /// Creates the entry point. [loggerFactory] supplies loggers for model
@@ -179,7 +179,7 @@ class LlamaCppFlutter {
   /// offload; pass `0` to force CPU (e.g. the iOS Simulator).
   ///
   /// Pass [mmprojPath] (an absolute path to a multimodal projector `.gguf`) to
-  /// enable image input via [LlamaSession.generate]'s `images` argument.
+  /// enable image input via [LlamaBridgeSession.generate]'s `images` argument.
   /// [imageTokenBudget] then sets the vision encoder's per-image token budget
   /// (mtmd `image_min_tokens`/`image_max_tokens`) for vision models with
   /// dynamic resolution — Gemma supports 70, 140, 280, 560, or 1120, where
@@ -195,7 +195,7 @@ class LlamaCppFlutter {
   /// single-model. The drafter is best-effort: if it fails to load or its
   /// vocabulary is incompatible, the reason is logged natively and the
   /// session loads without speculation rather than failing.
-  Future<LlamaSession> loadModel(
+  Future<LlamaBridgeSession> loadModel(
     String path, {
     int contextSize = 4096,
     int gpuLayers = 999,
@@ -231,7 +231,7 @@ class LlamaCppFlutter {
         maxSequences: maxSequences,
       ),
     );
-    return LlamaSession._(_isolate, id, maxSequences);
+    return LlamaBridgeSession._(_isolate, id, maxSequences);
   }
 
   /// Tears down the worker isolate. The instance is unusable afterwards.

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:extensions/logging.dart';
@@ -8,8 +9,30 @@ import 'llama_runtime_api.dart';
 import 'model_downloader_io.dart';
 
 /// Creates the native llama.cpp runtime for iOS and macOS.
-LlamaRuntime createLlamaRuntime({LoggerFactory? loggerFactory}) =>
-    NativeLlamaRuntime(loggerFactory: loggerFactory);
+///
+/// With [artifactCacheDirectory] set, `loadModel` calls that omit
+/// `localPath` download the spec's artifact URLs into that directory
+/// first (see [NativeLlamaRuntime.new]).
+///
+/// Throws [UnsupportedError] on IO platforms without a native backend
+/// (Android, Windows, Linux) — the plugin currently registers
+/// implementations for iOS and macOS only.
+LlamaRuntime createLlamaRuntime({
+  String? artifactCacheDirectory,
+  LoggerFactory? loggerFactory,
+}) {
+  if (!Platform.isIOS && !Platform.isMacOS) {
+    throw UnsupportedError(
+      'llama_cpp_flutter supports native inference on iOS and macOS only '
+      '(current platform: ${Platform.operatingSystem}). Web is supported '
+      'through wllama; Android/Windows/Linux backends do not exist yet.',
+    );
+  }
+  return NativeLlamaRuntime(
+    artifactCacheDirectory: artifactCacheDirectory,
+    loggerFactory: loggerFactory,
+  );
+}
 
 /// Loads GGUF models through the `llama_cpp_flutter` plugin.
 final class NativeLlamaRuntime implements LlamaRuntime {
@@ -23,10 +46,12 @@ final class NativeLlamaRuntime implements LlamaRuntime {
   /// tests).
   NativeLlamaRuntime({
     native.LlamaCppFlutter? llama,
-    this._downloader,
-    this._artifactCacheDirectory,
+    ModelDownloader? downloader,
+    String? artifactCacheDirectory,
     LoggerFactory? loggerFactory,
   }) : _llama = llama ?? native.LlamaCppFlutter(loggerFactory: loggerFactory),
+       _downloader = downloader,
+       _artifactCacheDirectory = artifactCacheDirectory,
        _loggerFactory = loggerFactory,
        _logger = (loggerFactory ?? NullLoggerFactory.instance).createLogger(
          'NativeLlamaRuntime',
@@ -96,7 +121,7 @@ final class NativeLlamaRuntime implements LlamaRuntime {
 final class _NativeLlamaSession implements LlamaSession {
   _NativeLlamaSession(this._inner);
 
-  final native.LlamaSession _inner;
+  final native.LlamaBridgeSession _inner;
 
   @override
   Stream<String> generate(

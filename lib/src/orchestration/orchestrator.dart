@@ -5,8 +5,15 @@ import 'dart:typed_data';
 import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 import 'package:extensions/logging.dart';
 
+import 'agent_profile.dart';
+import 'memory/budget_planner.dart';
+import 'memory/memory_monitor.dart';
+import 'memory/memory_monitor_factory.dart';
+import 'memory/memory_estimator.dart';
+import 'orchestrator_events.dart';
 import 'staging/artifact_stager.dart';
 import 'staging/staged_artifacts.dart';
+import 'state/snapshot_store.dart';
 
 /// Owns one loaded model and shares its session between registered agents,
 /// sizing the context to the device's memory budget.
@@ -41,14 +48,16 @@ class LlamaOrchestrator {
   /// artifacts download (auth, fakes). [loggerFactory] supplies loggers for
   /// the orchestrator and the chat clients it builds; null logs nothing.
   LlamaOrchestrator({
-    required this._runtime,
+    required LlamaRuntime runtime,
     required String cacheDirectory,
     this.policy = const MemoryPolicy(),
     int sequenceSlots = 1,
     SystemMemoryMonitor? memoryMonitor,
-    this._downloader,
+    ModelDownloader? downloader,
     LoggerFactory? loggerFactory,
-  }) : _cacheDirectory = cacheDirectory,
+  }) : _runtime = runtime,
+       _downloader = downloader,
+       _cacheDirectory = cacheDirectory,
        _defaultSlots = math.max(sequenceSlots, 1),
        _requestedSlots = math.max(sequenceSlots, 1),
        _monitor = memoryMonitor ?? createSystemMemoryMonitor(),

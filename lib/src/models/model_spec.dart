@@ -30,6 +30,23 @@ class SamplingDefaults {
 
   /// Sampler seed for reproducible generation, or null for random.
   final int? seed;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SamplingDefaults &&
+      other.maxTokens == maxTokens &&
+      other.temperature == temperature &&
+      other.topK == topK &&
+      other.topP == topP &&
+      other.seed == seed;
+
+  @override
+  int get hashCode => Object.hash(maxTokens, temperature, topK, topP, seed);
+
+  @override
+  String toString() =>
+      'SamplingDefaults(maxTokens: $maxTokens, temperature: $temperature, '
+      'topK: $topK, topP: $topP, seed: $seed)';
 }
 
 /// Everything the app needs to provision and run one model: artifact URLs,
@@ -57,7 +74,9 @@ class ModelSpec {
     this.engineId = 'llama',
     this.filterTools = true,
     this.enableThinking = true,
-  });
+  }) : assert(contextSize > 0, 'contextSize must be positive'),
+       assert(maxSequences > 0, 'maxSequences must be at least 1'),
+       assert(maxDraftTokens > 0, 'maxDraftTokens must be at least 1');
 
   /// Stable identifier, e.g. `'gemma-4-e4b-it-q4km'`.
   final String id;
@@ -203,4 +222,52 @@ class ModelSpec {
   /// Deliberately not built yet: with one engine there is nothing to
   /// dispatch.
   final String engineId;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ModelSpec &&
+      other.id == id &&
+      other.displayName == displayName &&
+      other.modelUrl == modelUrl &&
+      other.mmprojUrl == mmprojUrl &&
+      other.imageTokenBudget == imageTokenBudget &&
+      other.imageTiling == imageTiling &&
+      other.draftUrl == draftUrl &&
+      other.contextSize == contextSize &&
+      other.maxSequences == maxSequences &&
+      other.gpuLayers == gpuLayers &&
+      other.draftGpuLayers == draftGpuLayers &&
+      other.maxDraftTokens == maxDraftTokens &&
+      other.format == format &&
+      other.sampling == sampling &&
+      other.engineId == engineId &&
+      other.filterTools == filterTools &&
+      other.enableThinking == enableThinking;
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    displayName,
+    modelUrl,
+    mmprojUrl,
+    imageTokenBudget,
+    imageTiling,
+    draftUrl,
+    contextSize,
+    maxSequences,
+    gpuLayers,
+    draftGpuLayers,
+    maxDraftTokens,
+    format,
+    sampling,
+    engineId,
+    filterTools,
+    enableThinking,
+  );
+
+  @override
+  String toString() =>
+      'ModelSpec(id: $id, displayName: $displayName, '
+      'contextSize: $contextSize, maxSequences: $maxSequences, '
+      'format: ${format.runtimeType}, engineId: $engineId)';
 }
