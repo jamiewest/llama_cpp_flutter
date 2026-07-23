@@ -43,7 +43,8 @@ class _ModelScreenState extends State<ModelScreen> {
   }
 
   bool get _canLoad =>
-      _preset != null || Uri.tryParse(_customUrl.text.trim())?.hasScheme == true;
+      _preset != null ||
+      Uri.tryParse(_customUrl.text.trim())?.hasScheme == true;
 
   void _load() {
     _config

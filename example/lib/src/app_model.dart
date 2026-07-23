@@ -79,11 +79,15 @@ class AppModel extends ChangeNotifier {
     final preset = config.preset;
     final url = preset?.url ?? Uri.parse(config.customUrl.trim());
     final formatName = preset?.formatName ?? config.customFormatName;
-    final format = resolveChatFormat(formatName) ?? resolveChatFormat('chatml')!;
+    final format =
+        resolveChatFormat(formatName) ?? resolveChatFormat('chatml')!;
     return ModelSpec(
       id: preset?.id ?? 'custom',
-      displayName: preset?.label ??
-          (url.pathSegments.isNotEmpty ? url.pathSegments.last : 'Custom model'),
+      displayName:
+          preset?.label ??
+          (url.pathSegments.isNotEmpty
+              ? url.pathSegments.last
+              : 'Custom model'),
       modelUrl: url,
       contextSize: config.contextSize,
       gpuLayers: config.gpuLayers,
@@ -152,8 +156,9 @@ class AppModel extends ChangeNotifier {
     _agent = ChatClientAgent.withSettings(
       chatClient,
       name: config.name,
-      instructions:
-          config.instructions.trim().isEmpty ? null : config.instructions.trim(),
+      instructions: config.instructions.trim().isEmpty
+          ? null
+          : config.instructions.trim(),
       tools: config.enableTools ? buildDemoTools() : null,
     );
   }

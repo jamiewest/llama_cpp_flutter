@@ -134,8 +134,9 @@ class _AgentScreenState extends State<AgentScreen> {
                     labelText: 'Top-p',
                     hintText: 'engine default',
                   ),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                 ),
               ),
             ],

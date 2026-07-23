@@ -36,12 +36,20 @@
   <!--
     llama_cpp_flutter's web runtime expects `globalThis.Wllama` to be set
     before a model is loaded. The wllama JS version must match the
-    wllama.wasm asset bundled with the plugin (currently 3.5.1); the plugin
-    passes its own wasm path to this constructor.
+    wllama.wasm asset bundled with the plugin (WLLAMA_VERSION in the
+    plugin's tool/versions.env); the plugin passes its own wasm path to
+    this constructor.
 
     jsDelivr serves CORS headers, so this import keeps working when the page
     is served cross-origin isolated (COOP/COEP) for multi-threading.
   -->
+  <!--
+    Cross-origin isolation shim for hosts that can't set response headers
+    (e.g. GitHub Pages): a service worker injects COOP/COEP and reloads the
+    page once. On servers that already send the headers it does nothing.
+    Without isolation wllama silently falls back to a single thread.
+  -->
+  <script src="coi-serviceworker.min.js"></script>
   <script type="module">
     import { Wllama } from 'https://cdn.jsdelivr.net/npm/@wllama/wllama@3.5.1/esm/index.min.js';
     globalThis.Wllama = Wllama;

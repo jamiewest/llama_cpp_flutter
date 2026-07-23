@@ -1,0 +1,53 @@
+# Deploys the example app's web build to GitHub Pages:
+# https://<owner>.github.io/<repo>/
+#
+# Pages can't set COOP/COEP response headers, so cross-origin isolation
+# (multi-threaded wllama) comes from the coi-serviceworker shim vendored in
+# example/web/. First-time setup: Settings -> Pages -> Source must be
+# "GitHub Actions" (configure-pages below attempts to enable it).
+name: Deploy example to Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - run: flutter pub get
+        working-directory: example
+      - run: >-
+          flutter build web --release
+          --base-href "/${{ github.event.repository.name }}/"
+        working-directory: example
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: example/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

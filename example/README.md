@@ -29,6 +29,14 @@ The COOP/COEP headers make the page cross-origin isolated, which wllama
 needs for multi-threaded inference; without them the app still works but
 falls back to a single thread (the app shows a banner when that happens).
 When deploying a web build, configure the same two headers on your server.
+For hosts that can't set headers (GitHub Pages), `web/index.html` loads the
+vendored [coi-serviceworker](https://github.com/gzuidhof/coi-serviceworker)
+shim, which injects them via a service worker and reloads the page once;
+on servers that already send the headers it does nothing.
+
+`.github/workflows/deploy-pages.yml` builds this app and deploys it to
+GitHub Pages (`https://<owner>.github.io/<repo>/`) on every push to main.
+One-time setup: repo Settings → Pages → Source → "GitHub Actions".
 
 `web/index.html` imports `@wllama/wllama`'s ESM bundle from jsDelivr and
 exposes `globalThis.Wllama`, which the plugin's web runtime requires. Keep
