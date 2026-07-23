@@ -8,6 +8,7 @@ import 'dart:typed_data';
 
 import 'package:extensions/ai.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:llama_cpp_flutter/chat.dart';
 import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 
 Future<void> readmeQuickStart() async {
@@ -40,9 +41,7 @@ Future<void> readmeDownloadingRuntime(
   Directory cacheDir,
   ModelSpec spec,
 ) async {
-  final runtime = createLlamaRuntime(
-    artifactCacheDirectory: cacheDir.path,
-  );
+  final runtime = createLlamaRuntime(artifactCacheDirectory: cacheDir.path);
   final session = await runtime.loadModel(
     spec,
     onProgress: (progress) => stdout.write('load: $progress'),
@@ -94,6 +93,12 @@ Future<void> readmeGenerateEvents(LlamaSession session) async {
   }
 }
 
+Stream<String> readmeSmoothed(LlamaSession session) =>
+    session.generate('Why is the sky blue?').smoothed();
+
+Stream<String> readmeSmoothedAtomic(Stream<String> stream) =>
+    stream.smoothed(atomic: (chunk) => chunk.startsWith('<tool_call>'));
+
 void readmeFormatDetection(List<int> headerBytes) {
   final name = detectChatFormatNameForGguf(Uint8List.fromList(headerBytes));
   final format = resolveChatFormat(name) ?? resolveChatFormat('chatml')!;
@@ -109,6 +114,9 @@ void main() {
     expect(readmeDownloadingRuntime, isNotNull);
     expect(readmeManualDownload, isNotNull);
     expect(readmeChatClient, isNotNull);
+    expect(readmeGenerateEvents, isNotNull);
+    expect(readmeSmoothed, isNotNull);
+    expect(readmeSmoothedAtomic, isNotNull);
     expect(readmeFormatDetection, isNotNull);
   });
 }

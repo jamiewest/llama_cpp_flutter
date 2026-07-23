@@ -1,6 +1,7 @@
 /// Chat-format internals: per-family prompt templates, stream decoders,
-/// tool-call parsing, the [LlamaChatClient] implementation, and prompt
-/// diagnostics.
+/// tool-call parsing, the [LlamaChatClient] implementation, prompt
+/// diagnostics, and the token-stream transformers ([StopSequenceFilter],
+/// [TokenSmoother]).
 ///
 /// Most apps only need `resolveChatFormat`/`detectChatFormatNameForGguf`
 /// from the main `package:llama_cpp_flutter/llama_cpp_flutter.dart`
@@ -32,3 +33,4 @@ export 'src/llm/qwen/qwen_chat_format.dart';
 export 'src/llm/qwen/qwen_chat_template.dart';
 export 'src/llm/qwen/qwen_stream_decoder.dart';
 export 'src/runtime/stop_sequence_filter.dart';
+export 'src/runtime/token_smoother.dart';

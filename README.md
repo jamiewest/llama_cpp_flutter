@@ -161,6 +161,58 @@ await for (final event in session.generateEvents('Why is the sky blue?')) {
 }
 ```
 
+## Smoothing the stream for display
+
+Tokens arrive in bursts — a prompt-processing pause, then several tokens in
+one frame, then nothing while the next batch decodes — which makes streamed
+text jump and stutter on screen. `TokenSmoother` (from `chat.dart`) re-paces
+a `Stream<String>` into a steady, typewriter-style grapheme stream.
+
+```dart
+import 'package:llama_cpp_flutter/chat.dart';
+import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
+
+final display = session.generate('Why is the sky blue?').smoothed();
+```
+
+The release rate **tracks the arrival rate** rather than draining the buffer
+on a fixed schedule. The smoother keeps a running estimate of how fast text
+is arriving and releases at that rate, holding roughly `window` of text in
+reserve and using the backlog only as a correction; the rate itself is
+low-pass filtered over `smoothing`, so a change in generation speed comes out
+as a ramp instead of a jump. Because the rate is fractional and carried
+across frames, it can emit *slower* than one grapheme per frame — which is
+what lets it match a slow model instead of outrunning it.
+
+The difference, measured against a 5 tok/s source (4 graphemes every 200ms),
+looking at the gap between consecutive graphemes:
+
+| Pacing | median gap | worst gap |
+| ------ | ---------- | --------- |
+| drain the backlog over a fixed window | 16 ms | 152 ms |
+| track the arrival rate | 48 ms | 64 ms |
+
+The fixed-window version empties its buffer in four frames and then stalls
+for the rest of the token interval — the stutter is still there, just moved.
+Tracking the rate spreads the same four graphemes evenly across the interval.
+At 60 tok/s the same code emits several graphemes every frame; only the speed
+changes.
+
+Grapheme clusters stay intact (emoji ZWJ sequences are never split
+mid-render), and an `atomic` predicate releases matching chunks whole — use
+it for in-band markers that must not appear half-formed:
+
+```dart
+stream.smoothed(atomic: (chunk) => chunk.startsWith('<tool_call>'));
+```
+
+Smoothing is opt-in and never applied inside generation: it trails the source
+by about `window` and runs a periodic timer, which headless, batch, and test
+callers don't want. Apply it at the widget that renders the text. When the
+source ends, the remaining backlog drains within `window`. Cancelling the
+smoothed subscription cancels the upstream one, so stopping a generation
+still propagates back to the runtime.
+
 ## Concurrency and lifecycle
 
 - A session runs **one generation at a time**. Calling `generate` while a
@@ -200,7 +252,7 @@ imports:
 | Entrypoint            | Contents                                          |
 | --------------------- | ------------------------------------------------- |
 | `llama_cpp_flutter.dart` | Runtime, sessions, `ModelSpec`, downloads, format resolution, `ChatClient` adapter |
-| `chat.dart`           | Concrete chat formats, templates, stream decoders, `LlamaChatClient`, prompt diagnostics |
+| `chat.dart`           | Concrete chat formats, templates, stream decoders, `LlamaChatClient`, prompt diagnostics, token-stream transformers |
 | `gguf.dart`           | GGUF metadata reading, artifact cache naming      |
 | `orchestration.dart`  | Multi-agent orchestration over one loaded model   |
 | `bridge.dart`         | Low-level iOS/macOS plugin bridge                 |

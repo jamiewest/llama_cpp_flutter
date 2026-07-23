@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.4.0
+
+- New `TokenSmoother` stream transformer and the `Stream<String>.smoothed()`
+  extension, exported from `package:llama_cpp_flutter/chat.dart`. Token
+  streams arrive in bursts; the smoother re-paces them into a steady,
+  typewriter-style grapheme stream for display.
+
+  The release rate tracks the measured arrival rate rather than draining the
+  backlog on a fixed schedule — it estimates how fast text is arriving,
+  releases at that rate while holding about `window` in reserve, and uses the
+  backlog only as a correction, with the rate low-pass filtered over
+  `smoothing` so speed changes ramp instead of jump. The rate is fractional
+  and carried across frames, so it can emit slower than one grapheme per
+  frame and match a slow model instead of outrunning it. Against a 5 tok/s
+  source the worst gap between graphemes is 64 ms (median 48 ms), versus
+  152 ms (median 16 ms) for fixed-window draining, which empties its buffer
+  in four frames and then stalls.
+
+  Grapheme clusters (emoji ZWJ sequences) are never split, an `atomic`
+  predicate keeps in-band markers from rendering half-formed, and the tail
+  drains within `window` of the source ending. Opt-in by design — generation
+  is not smoothed automatically, so headless and batch callers are
+  unaffected. Apply it where the text is rendered:
+  `session.generate(prompt).smoothed()`.
+- Adds a direct dependency on `package:characters`.
+
 ## 0.3.2
 
 - Example: the web demo now deploys to GitHub Pages on every push to
