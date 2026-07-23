@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2
+
+- Example: the web demo now deploys to GitHub Pages on every push to
+  `main`, and vendors `coi-serviceworker` to inject COOP/COEP headers on
+  hosts that can't set them — keeping wllama multi-threaded on Pages.
+  No library changes.
+
 ## 0.3.1
 
 - Upstream: llama.cpp `b10069` → `b10091` on **both** backends. The
