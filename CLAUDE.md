@@ -57,13 +57,18 @@ both backends to the same upstream and opens a PR:
    release (downloads the zip, records the sha, runs the ABI check).
 2. `tool/update_wllama.sh` refreshes `lib/assets/wasm/wllama.wasm` from the
    latest `@wllama/wllama` npm release (the fallback artifact).
-3. The workflow then rebuilds that wasm from wllama's sources (their
-   docker/emsdk build, `SKIP_COMPAT=1`) with the `llama.cpp` submodule
-   checked out at the freshly pinned tag — so web and native run the same
-   upstream. If that build fails (wllama's glue drifted against newer
-   llama.cpp), the PR still opens with the npm wasm and says so; fixing the
-   drift means patching wllama (fork it at that point) or waiting for their
-   next release.
+3. The workflow then rebuilds that wasm from
+   `WLLAMA_SYNC_REPO@WLLAMA_SYNC_REF` — the fork branch
+   `jamiewest/wllama@flutter-sync`, cut from a wllama release tag and
+   carrying compat patches — with the `llama.cpp` submodule checked out at
+   the freshly pinned tag, so web and native run the same upstream. If
+   that build fails (glue drifted against newer llama.cpp), any pin-bump
+   PR still opens with the npm wasm, and the workflow run goes red so the
+   failure is visible; the fix is another compat patch on the fork branch
+   (first one: `params_from_json_cmpl` →
+   `server_schema::eval_llama_cmpl_schema`). When wllama publishes a new
+   release, rebase/recut `flutter-sync` from the new tag so the wasm stays
+   paired with the npm JS consumers load.
 
 The wasm must stay paired with the `@wllama/wllama` JS version consumers
 load (`WLLAMA_VERSION`); custom builds keep the pairing by building from

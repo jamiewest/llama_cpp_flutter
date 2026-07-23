@@ -34,14 +34,19 @@ jobs:
           source tool/versions.env
           echo "llama_tag=$LLAMA_CPP_TAG" >> "$GITHUB_OUTPUT"
           echo "wllama_version=$WLLAMA_VERSION" >> "$GITHUB_OUTPUT"
+          echo "sync_repo=${WLLAMA_SYNC_REPO:-ngxson/wllama}" >> "$GITHUB_OUTPUT"
+          echo "sync_ref=${WLLAMA_SYNC_REF:-$WLLAMA_VERSION}" >> "$GITHUB_OUTPUT"
 
+      # Builds from WLLAMA_SYNC_REPO@WLLAMA_SYNC_REF (a fork branch carrying
+      # compat patches, cut from a wllama release tag) with the llama.cpp
+      # submodule overridden to the pinned tag.
       - name: Build wllama wasm against pinned llama.cpp
         id: wasmbuild
         continue-on-error: true
         run: |
           set -euo pipefail
-          git clone --branch "${{ steps.pins.outputs.wllama_version }}" \
-            --depth 1 https://github.com/ngxson/wllama /tmp/wllama
+          git clone --branch "${{ steps.pins.outputs.sync_ref }}" \
+            --depth 1 "https://github.com/${{ steps.pins.outputs.sync_repo }}" /tmp/wllama
           cd /tmp/wllama
           git submodule update --init --depth 1 llama.cpp
           git -C llama.cpp fetch --depth 1 origin \
@@ -55,8 +60,12 @@ jobs:
         run: |
           cp /tmp/wllama/src/wasm/wllama.wasm lib/assets/wasm/wllama.wasm
           SHA=$(sha256sum lib/assets/wasm/wllama.wasm | awk '{print $1}')
+          # The JS-pairing version is whatever the sync sources actually are,
+          # which can lag the npm latest fetched above.
+          SRC_VERSION=$(python3 -c "import json; print(json.load(open('/tmp/wllama/package.json'))['version'])")
           sed -i \
-            -e "s|^WLLAMA_WASM_SOURCE=.*|WLLAMA_WASM_SOURCE=wllama-${{ steps.pins.outputs.wllama_version }}+llama.cpp-${{ steps.pins.outputs.llama_tag }}|" \
+            -e "s|^WLLAMA_VERSION=.*|WLLAMA_VERSION=$SRC_VERSION|" \
+            -e "s|^WLLAMA_WASM_SOURCE=.*|WLLAMA_WASM_SOURCE=${{ steps.pins.outputs.sync_repo }}@${{ steps.pins.outputs.sync_ref }}+llama.cpp-${{ steps.pins.outputs.llama_tag }}|" \
             -e "s|^WLLAMA_WASM_SHA256=.*|WLLAMA_WASM_SHA256=$SHA|" \
             tool/versions.env
 
@@ -91,3 +100,14 @@ jobs:
           else
             gh pr create --head "$BRANCH" --title "$TITLE" --body "$BODY"
           fi
+
+      # A failed sync build must not disappear into a green run: fail the
+      # workflow (after any PR is opened) so the break is visible even when
+      # no pins moved that week.
+      - name: Surface sync-build failure
+        if: steps.wasmbuild.outcome != 'success'
+        run: |
+          echo "Synced wasm build failed — the fork branch likely needs a" >&2
+          echo "compat patch for the new llama.cpp tag. See the build step" >&2
+          echo "logs and CLAUDE.md (upstream pins section)." >&2
+          exit 1
