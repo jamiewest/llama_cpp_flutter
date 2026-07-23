@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import '../models/model_spec.dart';
@@ -476,4 +477,122 @@ abstract interface class LlamaRuntime {
     String? localDraftPath,
     LlamaLoadProgress? onProgress,
   });
+}
+
+/// One event in a structured generation stream — see
+/// [LlamaSessionEvents.generateEvents].
+///
+/// The hierarchy is sealed, so exhaustive switches compile today; note
+/// that [LlamaWarningEvent] is reserved and nothing emits it yet.
+sealed class LlamaGenerationEvent {
+  const LlamaGenerationEvent();
+}
+
+/// A decoded piece of generated text.
+final class LlamaTextEvent extends LlamaGenerationEvent {
+  /// Creates a text event.
+  const LlamaTextEvent(this.text);
+
+  /// The decoded text piece, with stop sequences already removed.
+  final String text;
+
+  @override
+  String toString() => 'LlamaTextEvent(${text.length} chars)';
+}
+
+/// The run ended; always the final event of a successful stream.
+final class LlamaCompletedEvent extends LlamaGenerationEvent {
+  /// Creates a completed event.
+  const LlamaCompletedEvent(this.stats);
+
+  /// The run's token accounting, or null when the engine reported none.
+  ///
+  /// When present, `stats.finishReason` says why the run stopped.
+  final LlamaGenerationStats? stats;
+
+  @override
+  String toString() => 'LlamaCompletedEvent($stats)';
+}
+
+/// A non-fatal condition worth surfacing to the caller.
+///
+/// Reserved for future engines: nothing emits it today, but it is part of
+/// the sealed vocabulary so adding an emitter later is not a breaking
+/// change for exhaustive switches.
+final class LlamaWarningEvent extends LlamaGenerationEvent {
+  /// Creates a warning event.
+  const LlamaWarningEvent(this.message);
+
+  /// Human-readable description of the condition.
+  final String message;
+
+  @override
+  String toString() => 'LlamaWarningEvent($message)';
+}
+
+/// Structured event streaming over [LlamaSession.generate].
+extension LlamaSessionEvents on LlamaSession {
+  /// Generates text for [prompt] as a stream of typed events instead of
+  /// raw strings.
+  ///
+  /// Text arrives as [LlamaTextEvent]s. A successful run always ends with
+  /// a [LlamaCompletedEvent] carrying the engine's stats (null when the
+  /// engine reports none), so completion metadata cannot be missed — the
+  /// events equivalent of [LlamaSession.generate]'s `onStats` callback. A
+  /// failed run surfaces the failure as a stream error instead of a
+  /// completed event.
+  ///
+  /// Everything else matches [LlamaSession.generate]: same parameters,
+  /// same one-generation-at-a-time contract, and cancelling the
+  /// subscription cancels the run.
+  Stream<LlamaGenerationEvent> generateEvents(
+    String prompt, {
+    int maxTokens = 256,
+    double temperature = 0.8,
+    int? topK,
+    double? topP,
+    int? seed,
+    List<String> stopSequences = const <String>[],
+    List<Uint8List>? media,
+    List<LlamaChatTurn>? turns,
+    int sequenceId = 0,
+  }) {
+    LlamaGenerationStats? stats;
+    var errored = false;
+    StreamSubscription<String>? subscription;
+    late final StreamController<LlamaGenerationEvent> controller;
+    controller = StreamController<LlamaGenerationEvent>(
+      onListen: () {
+        subscription = generate(
+          prompt,
+          maxTokens: maxTokens,
+          temperature: temperature,
+          topK: topK,
+          topP: topP,
+          seed: seed,
+          stopSequences: stopSequences,
+          media: media,
+          turns: turns,
+          sequenceId: sequenceId,
+          // Engines report stats before closing the token stream, so the
+          // capture is complete by the time onDone runs.
+          onStats: (s) => stats = s,
+        ).listen(
+          (text) => controller.add(LlamaTextEvent(text)),
+          onError: (Object error, StackTrace stackTrace) {
+            errored = true;
+            controller.addError(error, stackTrace);
+          },
+          onDone: () {
+            if (!errored) controller.add(LlamaCompletedEvent(stats));
+            controller.close();
+          },
+        );
+      },
+      onPause: () => subscription?.pause(),
+      onResume: () => subscription?.resume(),
+      onCancel: () => subscription?.cancel(),
+    );
+    return controller.stream;
+  }
 }

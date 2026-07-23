@@ -81,6 +81,19 @@ Future<void> readmeChatClient(ModelSpec spec, LlamaSession session) async {
   stdout.write(response.text);
 }
 
+Future<void> readmeGenerateEvents(LlamaSession session) async {
+  await for (final event in session.generateEvents('Why is the sky blue?')) {
+    switch (event) {
+      case LlamaTextEvent(:final text):
+        stdout.write(text);
+      case LlamaCompletedEvent(:final stats):
+        stdout.write('finished: ${stats?.finishReason}');
+      case LlamaWarningEvent(:final message):
+        stdout.write('warning: $message');
+    }
+  }
+}
+
 void readmeFormatDetection(List<int> headerBytes) {
   final name = detectChatFormatNameForGguf(Uint8List.fromList(headerBytes));
   final format = resolveChatFormat(name) ?? resolveChatFormat('chatml')!;

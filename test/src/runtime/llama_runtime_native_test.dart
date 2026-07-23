@@ -177,12 +177,31 @@ void main() {
       expect(llama.maxDraftTokens, 8);
     });
 
+    test('reports canSetImageTokenBudget from the loaded projector', () async {
+      final llama = _RecordingLlamaCppFlutter();
+      final runtime = NativeLlamaRuntime(llama: llama);
+
+      final vision = await runtime.loadModel(
+        _spec(),
+        localPath: '/models/main.gguf',
+        localMmprojPath: '/models/mmproj.gguf',
+      );
+      expect(vision.capabilities.canSetImageTokenBudget, isTrue);
+
+      final textOnly = await runtime.loadModel(
+        _spec(),
+        localPath: '/models/main.gguf',
+      );
+      expect(textOnly.capabilities.canSetImageTokenBudget, isFalse);
+    });
+
     test('forwards runtime image-budget changes to the plugin', () async {
       final llama = _RecordingLlamaCppFlutter();
       final runtime = NativeLlamaRuntime(llama: llama);
       final session = await runtime.loadModel(
         _spec(),
         localPath: '/models/main.gguf',
+        localMmprojPath: '/models/mmproj.gguf',
       );
 
       expect(session.capabilities.canSetImageTokenBudget, isTrue);

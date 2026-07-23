@@ -114,14 +114,22 @@ final class NativeLlamaRuntime implements LlamaRuntime {
       maxDraftTokens: spec.maxDraftTokens,
       maxSequences: spec.maxSequences,
     );
-    return _NativeLlamaSession(session);
+    return _NativeLlamaSession(
+      session,
+      hasVisionProjector: mmprojPath != null && mmprojPath.isNotEmpty,
+    );
   }
 }
 
 final class _NativeLlamaSession implements LlamaSession {
-  _NativeLlamaSession(this._inner);
+  _NativeLlamaSession(this._inner, {required bool hasVisionProjector})
+    : _hasVisionProjector = hasVisionProjector;
 
   final native.LlamaBridgeSession _inner;
+
+  /// Whether this session was loaded with a multimodal projector; without
+  /// one there is no vision encoder whose token budget could change.
+  final bool _hasVisionProjector;
 
   @override
   Stream<String> generate(
@@ -172,7 +180,7 @@ final class _NativeLlamaSession implements LlamaSession {
     canPersistState: true,
     reportsStateSize: true,
     canStashState: true,
-    canSetImageTokenBudget: true,
+    canSetImageTokenBudget: _hasVisionProjector,
     maxSequences: _inner.maxSequences,
   );
 

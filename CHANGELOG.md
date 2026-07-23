@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0
+
+- New: `generateEvents()` on `LlamaSession` — a typed
+  `Stream<LlamaGenerationEvent>` (`LlamaTextEvent` /
+  `LlamaCompletedEvent` / `LlamaWarningEvent`) over the same generation
+  contract as `generate()`. A successful run always ends with a completed
+  event carrying the engine's stats, so finish reason and token accounting
+  cannot be missed. Non-breaking: implemented as an extension over the
+  existing string stream.
+- Fixed: the native session now reports
+  `capabilities.canSetImageTokenBudget` as `false` for sessions loaded
+  without a multimodal projector (previously always `true`, and calling
+  `setImageTokenBudget` on a text-only session could only fail natively).
+
 ## 0.2.0
 
 Pre-1.0 API cleanup release. Pinned upstream: llama.cpp `b10069`

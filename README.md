@@ -141,6 +141,26 @@ The client plugs into anything that accepts a `ChatClient` from
 `package:extensions/ai.dart`, including agents built with the
 [`agents`](https://github.com/jamiewest/agents) framework.
 
+## Structured generation events
+
+`generateEvents` is the typed alternative to the raw string stream: text
+arrives as events, and a successful run always ends with a completed event
+carrying the engine's stats — so the finish reason and token accounting
+cannot be missed. Failures surface as stream errors.
+
+```dart
+await for (final event in session.generateEvents('Why is the sky blue?')) {
+  switch (event) {
+    case LlamaTextEvent(:final text):
+      stdout.write(text);
+    case LlamaCompletedEvent(:final stats):
+      debugPrint('finished: ${stats?.finishReason}');
+    case LlamaWarningEvent(:final message):
+      debugPrint('warning: $message');
+  }
+}
+```
+
 ## Concurrency and lifecycle
 
 - A session runs **one generation at a time**. Calling `generate` while a
