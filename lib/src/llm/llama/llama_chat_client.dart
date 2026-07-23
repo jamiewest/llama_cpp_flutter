@@ -3,8 +3,6 @@ library;
 
 import 'dart:async';
 
-import 'package:agents/agents.dart'
-    show AgentRequestMessageSourceType, ChatMessageExtensions;
 import 'package:extensions/ai.dart';
 import 'package:extensions/logging.dart';
 import 'package:extensions/system.dart';
@@ -28,9 +26,8 @@ typedef SessionProvider = Future<LlamaSession> Function();
 /// [ChatOptions.instructions]; converting them into an in-band system message
 /// is the chat client's job (the `extensions` OpenAI client does the same).
 /// [ChatFormat]s only render a system turn from an actual system-role
-/// message, so without this step the harness instructions and every
-/// `AIContextProvider`'s contributed instructions are silently dropped from
-/// the prompt.
+/// message, so without this step the caller's instructions — including any
+/// a host framework contributes — are silently dropped from the prompt.
 ///
 /// If the conversation already starts with a system message the two are
 /// merged into one (instructions first): Gemma's wire format has a single
@@ -40,9 +37,8 @@ List<ChatMessage> messagesWithInstructions(
   Iterable<ChatMessage> messages,
   String? instructions,
 ) {
-  final prepared = messagesWithRuntimeContext(messages, instructions);
-  final trimmed = prepared.instructions?.trim();
-  final list = prepared.messages.toList();
+  final trimmed = instructions?.trim();
+  final list = messages.toList();
   if (trimmed == null || trimmed.isEmpty) return list;
 
   ChatMessage system(String text) => ChatMessage(
@@ -57,65 +53,6 @@ List<ChatMessage> messagesWithInstructions(
     ];
   }
   return <ChatMessage>[system(trimmed), ...list];
-}
-
-/// Repositions text-only AI-context-provider messages as one runtime-context
-/// turn just before the latest external user message.
-///
-/// Harness context providers sometimes contribute transient status messages
-/// using a `user` role, for example the todo provider's current todo list.
-/// Rendering those messages as ordinary trailing user turns changes the
-/// perceived latest user request for small local chat models.
-///
-/// They must not be merged into the system instructions either: that text
-/// sits at the very top of the rendered prompt, so any change to it (a todo
-/// update, per-turn memory recall) invalidates the entire llama.cpp KV-cache
-/// prefix and forces a full re-prefill of the whole conversation every turn.
-/// Placing the volatile context after the stable history keeps the prefix
-/// reusable while the model still reads the context right before the actual
-/// request.
-({Iterable<ChatMessage> messages, String? instructions})
-messagesWithRuntimeContext(
-  Iterable<ChatMessage> messages,
-  String? instructions,
-) {
-  final runtimeContext = <String>[];
-  final retained = <ChatMessage>[];
-
-  for (final message in messages) {
-    if (_isTextOnlyProviderMessage(message)) {
-      final text = message.text.trim();
-      if (text.isNotEmpty) {
-        final sourceId = message.getAgentRequestMessageSourceId();
-        runtimeContext.add(
-          sourceId == null || sourceId.isEmpty ? text : '[$sourceId]\n$text',
-        );
-      }
-    } else {
-      retained.add(message);
-    }
-  }
-
-  if (runtimeContext.isEmpty) {
-    return (messages: retained, instructions: instructions);
-  }
-
-  final contextMessage = ChatMessage(
-    role: ChatRole.user,
-    contents: <AIContent>[
-      TextContent('Runtime context:\n${runtimeContext.join('\n\n')}'),
-    ],
-  );
-
-  var insertAt = retained.length;
-  for (var i = retained.length - 1; i >= 0; i--) {
-    if (retained[i].role == ChatRole.user) {
-      insertAt = i;
-      break;
-    }
-  }
-  final result = [...retained]..insert(insertAt, contextMessage);
-  return (messages: result, instructions: instructions);
 }
 
 /// Builds the engine-neutral structured view of [messages] passed to
@@ -158,15 +95,6 @@ bool _hasAudioContent(Iterable<ChatMessage> messages) => messages.any(
     (data) => data.data != null && data.hasTopLevelMediaType('audio'),
   ),
 );
-
-bool _isTextOnlyProviderMessage(ChatMessage message) {
-  if (message.getAgentRequestMessageSourceType() !=
-      AgentRequestMessageSourceType.aiContextProvider) {
-    return false;
-  }
-  if (message.contents.isEmpty) return false;
-  return message.contents.every((content) => content is TextContent);
-}
 
 /// Bridges the M.E.AI chat abstractions to a model running through
 /// `LlamaCppFlutter`.

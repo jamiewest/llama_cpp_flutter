@@ -30,12 +30,18 @@ final db = orchestrator.registerAgent(const AgentProfile(
 ));
 final code = orchestrator.registerAgent(const AgentProfile(id: 'code'));
 
-// Each handle exposes a full Agents Framework AIAgent (a
-// ChatClientAgent built from the profile's name/description/
-// instructions/tools). Running it activates the agent: its KV state is
-// made resident first (own sequence, stash restore, or re-prefill).
-final session = await db.agent.createSession();
-final response = await db.agent.run(session, null, message: 'Design a schema.');
+// Each handle exposes a ChatClient. Resolving a request through it
+// activates the agent: its KV state is made resident first (own sequence,
+// stash restore, or re-prefill). The profile's name/description/
+// instructions/tools ride along as configuration — build whatever agent
+// abstraction your framework provides on top of this client.
+final response = await db.chatClient.getResponse(
+  messages: [ChatMessage.fromText(ChatRole.user, 'Design a schema.')],
+  options: ChatOptions(
+    instructions: db.profile.instructions,
+    tools: db.profile.tools,
+  ),
+);
 
 // Registry management:
 orchestrator.agents;                     // all handles

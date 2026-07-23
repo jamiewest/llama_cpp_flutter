@@ -111,7 +111,7 @@ stay in `SamplingDefaults` and are irrelevant to the planner.
 - Multiple models resident at once (design leaves room; see §9).
 - Multi-sequence batching (several agents decoding concurrently in one
   context). Phase-2 candidate; see §9.
-- Any change to the Agents Framework side — agents keep consuming a plain
+- Any change on the agent-framework side — agents keep consuming a plain
   `ChatClient`.
 
 ## 3. Package layout
@@ -157,9 +157,10 @@ final dbAgent = orchestrator.registerAgent(AgentProfile(
   preferredContextTokens: 8192,      // hint; planner may give less
 ));
 
-// ChatClient for the Agents Framework. SessionProvider inside it routes
-// through the orchestrator: resolving it activates the agent (KV swap).
-final AIAgent agent = AIAgent(chatClient: dbAgent.chatClient, ...);
+// ChatClient for whatever agent framework you use. SessionProvider inside
+// it routes through the orchestrator: resolving it activates the agent
+// (KV swap).
+final ChatClient client = dbAgent.chatClient;
 
 orchestrator.events.listen((e) { ... }); // resize/swap/pressure telemetry
 await orchestrator.dispose();

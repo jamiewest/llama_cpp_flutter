@@ -3,9 +3,9 @@
 On-device LLM inference for Flutter, backed by
 [llama.cpp](https://github.com/ggml-org/llama.cpp): load a local GGUF model
 and stream generated text through one cross-platform API. Chat formats,
-model downloading, KV-cache snapshots, multimodal input, and an adapter for
-the [`agents`](https://github.com/jamiewest/agents) framework are layered on
-top — use as much or as little as you need.
+model downloading, KV-cache snapshots, multimodal input, and memory-aware
+multi-agent orchestration are layered on top — use as much or as little as
+you need.
 
 ## Platform support
 
@@ -62,7 +62,7 @@ Future<void> main() async {
 
 `generate` consumes a raw prompt string. For multi-turn conversations,
 render the prompt through the spec's `ChatFormat` — or skip prompt handling
-entirely and use the [`ChatClient` adapter](#using-with-the-agents-framework).
+entirely and use the [`ChatClient` adapter](#using-with-an-agent-framework).
 
 ### Where the model file comes from
 
@@ -149,7 +149,7 @@ final name = detectChatFormatNameForGguf(headerBytes);
 final format = resolveChatFormat(name) ?? resolveChatFormat('chatml')!;
 ```
 
-## Using with the `agents` framework
+## Using with an agent framework
 
 `createLlamaChatClient` wraps a loaded session in a `ChatClient`, handling
 prompt rendering, sampling defaults, tool-call decoding, and multimodal
@@ -168,8 +168,9 @@ print(response.text);
 ```
 
 The client plugs into anything that accepts a `ChatClient` from
-`package:extensions/ai.dart`, including agents built with the
-[`agents`](https://github.com/jamiewest/agents) framework.
+`package:extensions/ai.dart`. This package depends only on `extensions`, so
+the agent framework — if any — is entirely your choice; wrap the client in
+whatever agent abstraction it provides.
 
 ## Structured generation events
 
@@ -375,8 +376,7 @@ How it works:
 
 ## Requirements & notes
 
-- SDK: **Dart ^3.11.5 / Flutter >=3.41.7** — the floor comes from the
-  `agents` dependency, not this package's own code.
+- SDK: **Dart ^3.9.0 / Flutter >=3.35.0**.
 - Deployment targets: **iOS 16.4 / macOS 13.3** (Metal build minimums).
 - Models are loaded from a **runtime file path** — nothing is bundled. On
   sandboxed macOS the app needs `com.apple.security.files.user-selected.read-only`.

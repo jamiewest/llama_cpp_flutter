@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:agents/agents.dart' show ChatClientAgent;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:llama_cpp_flutter/chat.dart';
 import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
@@ -554,7 +553,7 @@ void main() {
       expect(orchestrator.agents, hasLength(2));
     });
 
-    test('builds a ChatClientAgent from the profile', () async {
+    test('carries the profile and exposes one lazy chat client', () async {
       await load();
       final handle = orchestrator.registerAgent(
         const AgentProfile(
@@ -565,15 +564,16 @@ void main() {
         ),
       );
 
-      final agent = handle.agent;
-      expect(agent, isA<ChatClientAgent>());
-      expect(agent.name, 'Database agent');
-      expect(agent.description, 'Designs schemas.');
-      final chatAgent = agent as ChatClientAgent;
-      expect(chatAgent.instructions, 'You are a database engineer.');
-      expect(chatAgent.idCore, 'db');
-      // The same instance comes back on every access.
-      expect(handle.agent, same(agent));
+      // The profile is carried verbatim for whatever agent layer is built
+      // on top; this package holds it as configuration only.
+      expect(handle.profile.id, 'db');
+      expect(handle.profile.name, 'Database agent');
+      expect(handle.profile.description, 'Designs schemas.');
+      expect(handle.profile.instructions, 'You are a database engineer.');
+
+      // The same client comes back on every access, so an agent built from
+      // it keeps one KV-cache identity.
+      expect(handle.chatClient, same(handle.chatClient));
     });
 
     test('activating an unregistered agent throws', () async {

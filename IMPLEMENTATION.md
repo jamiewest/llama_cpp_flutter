@@ -1,8 +1,9 @@
 # Architecture
 
 `llama_cpp_flutter` adapts local GGUF inference to the `ChatClient` contracts from
-the Dart `agents` framework. It owns model metadata, prompt formatting, stream
-decoding, diagnostics, and the runtime-neutral `LlamaRuntime` interface.
+`package:extensions/ai.dart`. It owns model metadata, prompt formatting, stream
+decoding, diagnostics, and the runtime-neutral `LlamaRuntime` interface. Agent
+frameworks sit on top of that `ChatClient`; none is depended on here.
 
 The runtime is selected with conditional exports:
 
@@ -24,9 +25,6 @@ flutter analyze packages/llama_cpp_flutter
 flutter test packages/llama_cpp_flutter
 flutter analyze packages/llama_cpp_flutter
 ```
-
-Copy `pubspec_overrides.yaml.example` to `pubspec_overrides.yaml` to develop
-against a sibling checkout of `jamiewest/agents`.
 
 After changing `packages/llama_cpp_flutter/pigeons/messages.dart`, regenerate the
 bridge from that package directory and commit both generated outputs:

@@ -201,8 +201,8 @@ class LlamaOrchestrator {
   /// live sequence (multi-sequence mode), its RAM stash entry, and its
   /// disk snapshot. Returns false when no such agent was registered.
   ///
-  /// The handle (and any [AgentHandle.agent] built from it) stops working:
-  /// its next request would re-register nothing and throws through
+  /// The handle (and any agent built on its [AgentHandle.chatClient]) stops
+  /// working: its next request would re-register nothing and throws through
   /// [sessionFor].
   Future<bool> unregisterAgent(String id) => _tasks.run(() async {
     final handle = _agents.remove(id);

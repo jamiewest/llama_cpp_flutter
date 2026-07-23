@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.6.0
+
+**Breaking: `agents` is no longer a dependency.** This package now depends
+only on `extensions`, so the agent framework layered on top — if any — is
+entirely the host app's choice. The practical win is the SDK floor: **Dart
+`^3.11.5` → `^3.9.0`, Flutter `>=3.41.7` → `>=3.35.0`**, since the old floor
+came from `agents` rather than from anything in this package. `extensions`
+remains a direct dependency and the `ChatClient` API is unchanged.
+
+Two removals, both pre-1.0 and both easy to restore in your own code:
+
+- **`AgentHandle.agent` is gone.** It built a `ChatClientAgent` from the
+  handle's profile. Build it yourself from `AgentHandle.chatClient` —
+  the profile is still carried verbatim on `AgentHandle.profile`
+  (`id`, `name`, `description`, `instructions`, `tools`), and
+  `chatClient` still returns one cached instance per handle, so an agent
+  built from it keeps a single KV-cache identity:
+
+  ```dart
+  final agent = ChatClientAgent(
+    handle.chatClient,
+    options: ChatClientAgentOptions()
+      ..id = handle.profile.id
+      ..name = handle.profile.name ?? handle.profile.id
+      ..description = handle.profile.description
+      ..chatOptions = ChatOptions(
+        instructions: handle.profile.instructions,
+        tools: handle.profile.tools,
+      ),
+  );
+  ```
+
+- **`messagesWithRuntimeContext` is gone**, and `messagesWithInstructions`
+  no longer calls it — it now only materializes `ChatOptions.instructions`
+  as the leading system message. This is a **silent** behavior change for
+  anyone who called `messagesWithInstructions` directly: messages are no
+  longer reordered.
+
+  What it did: text-only messages attributed to an `AIContextProvider` were
+  pulled out and re-inserted as one `Runtime context:` turn immediately
+  before the latest user message. Detecting them required the `agents`
+  attribution API, so the behavior cannot live here anymore. It is worth
+  re-implementing in whatever agent layer replaces it, because the reasoning
+  is non-obvious: such context must not be merged into the system
+  instructions, since that text is the head of the rendered prompt and any
+  per-turn change to it invalidates the whole llama.cpp KV-cache prefix and
+  forces a full re-prefill every turn. Placing it after the stable history
+  keeps the prefix reusable while the model still reads it right before the
+  request. See `messagesWithRuntimeContext` in 0.5.0 for the implementation.
+
+`AgentProfile.tools` keeps its `List<AITool>?` type (`AITool` comes from
+`extensions`); it is configuration only, and nothing in this package
+executes it.
+
 ## 0.5.0
 
 - New `ArtifactStore`, exported from `package:llama_cpp_flutter`: app-managed

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:agents/agents.dart';
 import 'package:llama_cpp_flutter/chat.dart';
 import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 import 'package:extensions/ai.dart';
@@ -155,102 +154,41 @@ final class _CancellableSession implements LlamaSession {
 }
 
 void main() {
-  group('messagesWithRuntimeContext', () {
-    test(
-      'repositions text-only provider messages before the latest user turn',
-      () {
-        final prepared = messagesWithRuntimeContext([
-          ChatMessage.fromText(ChatRole.user, 'Hi'),
-          ChatMessage.fromText(
-            ChatRole.user,
-            '### Current todo list\n- none yet',
-          ).withAgentRequestMessageSource(
-            AgentRequestMessageSourceType.aiContextProvider,
-            sourceId: 'TodoProvider',
-          ),
-        ], 'You are helpful.');
-
-        // Volatile provider state stays out of the instructions so the
-        // rendered system prompt (the KV-cache prefix) is turn-stable.
-        expect(prepared.instructions, 'You are helpful.');
-        final messages = prepared.messages.toList();
-        expect(messages, hasLength(2));
-        expect(messages.first.text, contains('Runtime context:'));
-        expect(messages.first.text, contains('[TodoProvider]'));
-        expect(messages.first.text, contains('### Current todo list'));
-        expect(messages.last.text, 'Hi');
-      },
-    );
-
-    test(
-      'keeps provider messages with non-text content in the message list',
-      () {
-        final imageMessage =
-            ChatMessage(
-              role: ChatRole.user,
-              contents: [
-                TextContent('Image context'),
-                DataContent(
-                  Uint8List.fromList([1, 2, 3]),
-                  mediaType: 'image/png',
-                ),
-              ],
-            ).withAgentRequestMessageSource(
-              AgentRequestMessageSourceType.aiContextProvider,
-              sourceId: 'ImageProvider',
-            );
-
-        final prepared = messagesWithRuntimeContext([imageMessage], null);
-
-        expect(prepared.messages.single, same(imageMessage));
-        expect(prepared.instructions, isNull);
-      },
-    );
-  });
-
   group('LlamaChatClient prompt preparation', () {
-    test(
-      'keeps tools while avoiding provider context as the final user turn',
-      () async {
-        final session = _RecordingSession();
-        final client = LlamaChatClient(
-          sessionProvider: () async => session,
-          format: const Lfm2ChatFormat(),
-          contextSize: 4096,
-        );
+    test('renders tools and every message in author order', () async {
+      final session = _RecordingSession();
+      final client = LlamaChatClient(
+        sessionProvider: () async => session,
+        format: const Lfm2ChatFormat(),
+        contextSize: 4096,
+      );
 
-        await client.getResponse(
-          messages: [
-            ChatMessage.fromText(ChatRole.user, 'Hi'),
-            ChatMessage.fromText(
-              ChatRole.user,
-              '### Current todo list\n- none yet',
-            ).withAgentRequestMessageSource(
-              AgentRequestMessageSourceType.aiContextProvider,
-              sourceId: 'TodoProvider',
-            ),
-          ],
-          options: ChatOptions(
-            instructions: 'You are a helpful assistant.',
-            tools: [_TestFunction(name: 'TodoList_GetRemaining')],
-          ),
-          cancellationToken: CancellationToken.none,
-        );
+      await client.getResponse(
+        messages: [
+          ChatMessage.fromText(ChatRole.user, 'Hi'),
+          ChatMessage.fromText(ChatRole.assistant, 'Hello!'),
+          ChatMessage.fromText(ChatRole.user, 'What is left to do?'),
+        ],
+        options: ChatOptions(
+          instructions: 'You are a helpful assistant.',
+          tools: [_TestFunction(name: 'TodoList_GetRemaining')],
+        ),
+        cancellationToken: CancellationToken.none,
+      );
 
-        final prompt = session.prompt!;
-        expect(prompt, contains('Runtime context:'));
-        expect(prompt, contains('### Current todo list'));
-        expect(prompt, contains('List of tools: <|tool_list_start|>'));
-        expect(prompt, contains('"name": "TodoList_GetRemaining"'));
-        expect(prompt, contains('<|im_start|>user\nHi<|im_end|>'));
-        expect(prompt, isNot(endsWith('Current todo list\n- none yet')));
-        expect(
-          prompt.lastIndexOf('<|im_start|>user\nHi<|im_end|>'),
-          greaterThan(prompt.lastIndexOf('### Current todo list')),
-        );
-        expect(session.turns, isNull);
-      },
-    );
+      final prompt = session.prompt!;
+      expect(prompt, contains('List of tools: <|tool_list_start|>'));
+      expect(prompt, contains('"name": "TodoList_GetRemaining"'));
+      expect(prompt, contains('You are a helpful assistant.'));
+      // Messages reach the prompt in the order the caller wrote them; this
+      // client no longer reorders any of them.
+      expect(
+        prompt.indexOf('Hi'),
+        lessThan(prompt.indexOf('What is left to do?')),
+      );
+      expect(prompt.trimRight(), endsWith('<|im_start|>assistant'));
+      expect(session.turns, isNull);
+    });
 
     test('passes structured turns to the session for image requests', () async {
       final session = _RecordingSession();
@@ -326,9 +264,7 @@ void main() {
       // rendered prompt, and four images on the structured user turn.
       expect(session.media, hasLength(4));
       expect(
-        Lfm2ChatTemplate.mediaMarker
-            .allMatches(session.prompt!)
-            .length,
+        Lfm2ChatTemplate.mediaMarker.allMatches(session.prompt!).length,
         4,
       );
       expect(session.turns!.last.images, hasLength(4));

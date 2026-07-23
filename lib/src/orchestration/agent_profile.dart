@@ -1,4 +1,3 @@
-import 'package:agents/agents.dart';
 import 'package:llama_cpp_flutter/llama_cpp_flutter.dart';
 import 'package:extensions/ai.dart';
 
@@ -19,8 +18,9 @@ enum AgentPriority {
 /// Declares one purpose-specific agent to the orchestrator: identity,
 /// persona ([instructions]), [tools], context residency, and sampling.
 ///
-/// The orchestrator builds a full Agents Framework [AIAgent]
-/// (`ChatClientAgent`) from this profile — see `AgentHandle.agent`.
+/// This is plain configuration data. The orchestrator uses it to size and
+/// schedule the agent's KV-cache residency; building an agent abstraction
+/// on top is the host app's job — see [AgentHandle.chatClient].
 class AgentProfile {
   /// Creates a profile.
   const AgentProfile({
@@ -38,18 +38,21 @@ class AgentProfile {
   /// disk, and stash entries.
   final String id;
 
-  /// Human-readable name for the built [AIAgent]; defaults to [id].
+  /// Human-readable name for this agent; defaults to [id].
   final String? name;
 
-  /// Description of the agent's purpose, surfaced on the built [AIAgent].
+  /// Description of the agent's purpose.
   final String? description;
 
-  /// System instructions (persona) applied to every run of the built
-  /// [AIAgent].
+  /// System instructions (persona) to apply to every run of this agent.
   final String? instructions;
 
-  /// Tools the built [AIAgent] can invoke (automatic function invocation
-  /// is wired by `ChatClientAgent`).
+  /// Tools this agent may invoke.
+  ///
+  /// Carried as configuration only: nothing in this package executes them.
+  /// Wire them up where the agent is built — e.g. by passing them in
+  /// `ChatOptions.tools` and wrapping [AgentHandle.chatClient] in a
+  /// tool-invoking client.
   final List<AITool>? tools;
 
   /// Eviction priority under memory pressure.
@@ -79,30 +82,15 @@ class AgentHandle {
   final ChatClient Function() _chatClientFactory;
   final Future<void> Function() _invalidateSnapshot;
   ChatClient? _chatClient;
-  AIAgent? _agent;
 
-  /// The chat client this agent's [agent] runs on. Resolving a request
-  /// through it activates the agent — the orchestrator makes its KV state
-  /// resident first. Created lazily; requires a loaded model.
+  /// The chat client this agent runs on. Resolving a request through it
+  /// activates the agent — the orchestrator makes its KV state resident
+  /// first. Created lazily; requires a loaded model.
+  ///
+  /// This is the seam for an agent framework: build whatever agent
+  /// abstraction you use on top of this client, carrying [profile]'s name,
+  /// description, instructions, and tools.
   ChatClient get chatClient => _chatClient ??= _chatClientFactory();
-
-  /// The Agents Framework agent built from [profile]: a
-  /// `ChatClientAgent` over [chatClient] carrying the profile's name,
-  /// description, instructions, and tools. Created lazily; requires a
-  /// loaded model.
-  AIAgent get agent => _agent ??= ChatClientAgent(
-    chatClient,
-    options: ChatClientAgentOptions()
-      ..id = profile.id
-      ..name = profile.name ?? profile.id
-      ..description = profile.description
-      ..chatOptions = profile.instructions == null && profile.tools == null
-          ? null
-          : ChatOptions(
-              instructions: profile.instructions,
-              tools: profile.tools,
-            ),
-  );
 
   /// Drops the agent's saved KV snapshot and stash; its next turn starts
   /// from a fresh prefill.
