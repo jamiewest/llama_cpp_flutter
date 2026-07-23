@@ -23,6 +23,7 @@ export 'src/llm/llama/llama_chat_client.dart' show SessionProvider;
 export 'src/llm/llama/llama_chat_client_factory.dart';
 export 'src/models/hugging_face.dart';
 export 'src/models/model_spec.dart';
+export 'src/runtime/artifact_store.dart';
 export 'src/runtime/llama_runtime.dart';
 export 'src/runtime/llama_runtime_api.dart';
 export 'src/runtime/model_downloader.dart';

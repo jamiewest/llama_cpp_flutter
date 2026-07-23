@@ -4,7 +4,7 @@ import 'package:flutter_ai_toolkit/flutter_ai_toolkit.dart';
 
 import '../app_model.dart';
 import 'agent_screen.dart';
-import 'model_screen.dart';
+import 'library_screen.dart';
 
 class ChatScreen extends StatelessWidget {
   const ChatScreen({super.key, required this.model});
@@ -32,44 +32,46 @@ class ChatScreen extends StatelessWidget {
               onPressed: () => _push(context, AgentScreen(model: model)),
             ),
             IconButton(
-              tooltip: 'Model settings',
+              tooltip: 'Models',
               icon: const Icon(Icons.memory_outlined),
-              onPressed: () => _push(context, ModelScreen(model: model)),
+              onPressed: () => _push(context, LibraryScreen(model: model)),
             ),
           ],
         ),
-        body: switch (model.status) {
-          ModelStatus.empty => _Welcome(model: model),
-          ModelStatus.loading => _LoadingView(model: model),
-          ModelStatus.error => _ErrorView(model: model),
-          ModelStatus.ready => Column(
-            children: [
-              if (kIsWeb && !model.multiThreaded)
-                MaterialBanner(
-                  content: const Text(
-                    'This page is not cross-origin isolated, so inference '
-                    'runs on a single thread and will be slow. Serve with '
-                    'COOP/COEP headers to enable multi-threading (see the '
-                    'example README).',
-                  ),
-                  leading: const Icon(Icons.speed),
-                  actions: const [SizedBox.shrink()],
+        body: !model.isInitialized
+            ? const Center(child: CircularProgressIndicator())
+            : switch (model.status) {
+                ModelStatus.empty => _Welcome(model: model),
+                ModelStatus.loading => _LoadingView(model: model),
+                ModelStatus.error => _ErrorView(model: model),
+                ModelStatus.ready => Column(
+                  children: [
+                    if (kIsWeb && !model.multiThreaded)
+                      MaterialBanner(
+                        content: const Text(
+                          'This page is not cross-origin isolated, so inference '
+                          'runs on a single thread and will be slow. Serve with '
+                          'COOP/COEP headers to enable multi-threading (see the '
+                          'example README).',
+                        ),
+                        leading: const Icon(Icons.speed),
+                        actions: const [SizedBox.shrink()],
+                      ),
+                    Expanded(
+                      child: LlmChatView(
+                        key: ValueKey(model.modelGeneration),
+                        provider: model.provider,
+                        welcomeMessage:
+                            'The model runs entirely on this device. '
+                            'With tools enabled, try "what time is it?" or '
+                            '"roll a 20-sided die".',
+                        enableAttachments: model.supportsImages,
+                        enableVoiceNotes: false,
+                      ),
+                    ),
+                  ],
                 ),
-              Expanded(
-                child: LlmChatView(
-                  key: ValueKey(model.modelGeneration),
-                  provider: model.provider,
-                  welcomeMessage:
-                      'The model runs entirely on this device. '
-                      'With tools enabled, try "what time is it?" or '
-                      '"roll a 20-sided die".',
-                  enableAttachments: false,
-                  enableVoiceNotes: false,
-                ),
-              ),
-            ],
-          ),
-        },
+              },
       ),
     );
   }
@@ -114,7 +116,7 @@ class _Welcome extends StatelessWidget {
                 label: const Text('Choose a model'),
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => ModelScreen(model: model),
+                    builder: (_) => LibraryScreen(model: model),
                   ),
                 ),
               ),
@@ -180,14 +182,14 @@ class _ErrorView extends StatelessWidget {
                   OutlinedButton(
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => ModelScreen(model: model),
+                        builder: (_) => LibraryScreen(model: model),
                       ),
                     ),
-                    child: const Text('Model settings'),
+                    child: const Text('Models'),
                   ),
                   const SizedBox(width: 12),
                   FilledButton(
-                    onPressed: model.loadModel,
+                    onPressed: model.retryLastLoad,
                     child: const Text('Retry'),
                   ),
                 ],

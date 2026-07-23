@@ -4,10 +4,9 @@ Demo chat app for `llama_cpp_flutter`: a
 [flutter_ai_toolkit](https://pub.dev/packages/flutter_ai_toolkit) chat UI
 backed by a local GGUF model through the
 [`agents`](https://pub.dev/packages/agents) framework, with in-app screens
-for configuring the **model** (preset or custom GGUF URL, context size, GPU
-offload, thinking) and the **agent** (persona/system prompt, sampling,
-demo tools). The same Dart code runs natively on macOS/iOS and in the
-browser via wllama (Wasm).
+for a user-managed **model library** and for configuring the **agent**
+(persona/system prompt, sampling, demo tools). The same Dart code runs
+natively on macOS/iOS and in the browser via wllama (Wasm).
 
 ## Run it
 
@@ -42,10 +41,25 @@ One-time setup: repo Settings → Pages → Source → "GitHub Actions".
 exposes `globalThis.Wllama`, which the plugin's web runtime requires. Keep
 that JS version in sync with the `wllama.wasm` asset bundled by the plugin.
 
-Models download on first load and are cached (native: application-support
-directory; web: browser cache / OPFS). Tool calling works with the
-tool-trained presets (Qwen3, Llama 3.2, LFM2) — try "what time is it?" or
-"roll a 20-sided die".
+## The model library
+
+Everything the app puts on the device is visible and removable. Add a model
+from the built-in catalog, from a download URL, or from GGUF files already
+on the device — each with an optional vision projector (mmproj) and, on
+native, a speculative-decoding draft model. The library lists what is
+stored, what it costs, and which model is loaded; editing a model can save
+alone or save and reload, and deleting one removes its files unless another
+model still uses them.
+
+Artifacts live in the plugin's `ArtifactStore` (native: a directory under
+application support; web: the origin-private file system), which is what
+makes storage accounting and deletion possible. An artifact shared by two
+models is stored once. Image attachments turn on only while the loaded
+model has a projector, and draft models are hidden on web, where the
+runtime cannot stage a second GGUF.
+
+Tool calling works with the tool-trained presets (Qwen3, Llama 3.2, LFM2) —
+try "what time is it?" or "roll a 20-sided die".
 
 ## CI link smoke test
 

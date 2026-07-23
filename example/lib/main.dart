@@ -25,6 +25,14 @@ class _ExampleAppState extends State<ExampleApp> {
   final AppModel model = AppModel();
 
   @override
+  void initState() {
+    super.initState();
+    // Reads the saved model library and reconciles it with what is actually
+    // in managed storage; the chat screen waits on it.
+    model.initialize();
+  }
+
+  @override
   void dispose() {
     model.dispose();
     super.dispose();

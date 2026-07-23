@@ -16,6 +16,16 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+      # Browser-only suites: `flutter test` skips @TestOn('browser') files,
+      # and OPFS-backed storage has no VM equivalent to stand in for it.
+      - run: >-
+          flutter test --platform chrome
+          test/artifact_store_web_test.dart
+          test/web_runtime_smoke_test.dart
+      - run: flutter analyze
+        working-directory: example
+      - run: flutter test
+        working-directory: example
 
   # The staging-ABI tripwire: fails when llama.cpp's src/llama-ext.h no
   # longer declares what darwin/Classes/LlamaExtShim.cpp re-declares.

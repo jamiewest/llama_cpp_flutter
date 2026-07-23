@@ -10,19 +10,13 @@ import 'package:extensions/logging.dart';
 import 'package:web/web.dart' as web;
 
 import '../models/model_spec.dart';
-import 'artifact_cache_name.dart';
+import 'artifact_store_api.dart';
 import 'gguf_split.dart';
 import 'llama_runtime_api.dart';
+import 'opfs_artifacts.dart';
 import 'stop_sequence_filter.dart';
 
 const int _maxWebModelBytes = 0x7fffffff;
-
-/// OPFS directory holding oversized models downloaded by this runtime.
-///
-/// Models at or under the wasm32 per-file limit go through wllama's own
-/// URL cache instead; only files that must be staged as client-side
-/// splits land here (keyed by URL, reused across sessions).
-const String _largeModelCacheDir = 'llama_cpp_flutter_large_models';
 
 /// Creates the wllama runtime for Flutter web.
 ///
@@ -120,8 +114,8 @@ final class WebLlamaRuntime implements LlamaRuntime {
     return _WebLlamaSession(instance, spec.contextSize);
   }
 
-  /// Stages already-resolved blob URLs (splitting the model if oversized)
-  /// and loads them.
+  /// Stages already-resolved local artifacts (splitting the model if
+  /// oversized) and loads them.
   static Future<void> _loadFromLocalBlobs(
     JSObject instance,
     ModelSpec spec, {
@@ -129,14 +123,33 @@ final class WebLlamaRuntime implements LlamaRuntime {
     String? mmprojUrl,
   }) async {
     final blobs = <web.Blob>[
-      ...await _asLoadableParts(await _fetchBlob(modelUrl)),
+      ...await _asLoadableParts(await _resolveBlob(modelUrl)),
     ];
     if (mmprojUrl != null && mmprojUrl.isNotEmpty) {
       // wllama identifies the projector blob by its GGUF metadata
       // (general.architecture == "clip"), so order does not matter.
-      blobs.add(await _fetchBlob(mmprojUrl));
+      blobs.add(await _resolveBlob(mmprojUrl));
     }
     await _loadFromBlobs(instance, blobs, spec);
+  }
+
+  /// Resolves one `loadModel` path argument to a blob.
+  ///
+  /// A managed-storage handle (see `ArtifactStore.resolve`) resolves
+  /// straight to its OPFS file: the bytes stay on disk, and an oversized
+  /// model is sliced into stageable parts from there. Anything else is a
+  /// URL — a blob URL from a file input, say — and is fetched.
+  static Future<web.Blob> _resolveBlob(String path) async {
+    final key = artifactKeyOf(path);
+    if (key == null) return _fetchBlob(path);
+    final directory = await requireArtifactDirectory();
+    final file = await artifactFile(directory, key);
+    if (file == null) {
+      throw ArtifactStorageException(
+        'The artifact "$key" is no longer in managed storage.',
+      );
+    }
+    return file;
   }
 
   /// Downloads a model too large for wllama's URL cache into OPFS, splits
@@ -247,70 +260,30 @@ final class WebLlamaRuntime implements LlamaRuntime {
     }
   }
 
-  /// Downloads an oversized model into OPFS (reusing a previous copy of
-  /// the same size) and returns it as a disk-backed [web.Blob].
+  /// Downloads an oversized model into managed OPFS storage (reusing a
+  /// previous copy, and resuming an interrupted one) and returns it as a
+  /// disk-backed [web.Blob].
   ///
-  /// Falls back to an in-memory fetch when OPFS is unavailable — the
-  /// model then loads but is re-downloaded next session.
+  /// The copy lands where `ArtifactStore` looks, so a model the runtime
+  /// downloaded on its own is listable and deletable through managed
+  /// storage. Falls back to an in-memory fetch when OPFS is unavailable —
+  /// the model then loads but is re-downloaded next session.
   static Future<web.Blob> _cachedLargeModel(
     Uri modelUrl,
     int contentLength,
     LlamaLoadProgress? onProgress,
   ) async {
-    final web.FileSystemDirectoryHandle cacheDir;
-    try {
-      final opfs = await web.window.navigator.storage.getDirectory().toDart;
-      cacheDir = await opfs
-          .getDirectoryHandle(
-            _largeModelCacheDir,
-            web.FileSystemGetDirectoryOptions(create: true),
-          )
-          .toDart;
-    } catch (_) {
+    final directory = await openArtifactDirectory();
+    if (directory == null) {
       final response = await _fetchOk(modelUrl.toString());
       return response.blob().toDart;
     }
-
-    final name = stableArtifactFileName(modelUrl);
-    try {
-      final existing = await cacheDir.getFileHandle(name).toDart;
-      final file = await existing.getFile().toDart;
-      if (file.size == contentLength) return file;
-    } catch (_) {
-      // Nothing cached yet.
-    }
-
-    final handle = await cacheDir
-        .getFileHandle(name, web.FileSystemGetFileOptions(create: true))
-        .toDart;
-    final writable = await handle.createWritable().toDart;
-    try {
-      final response = await _fetchOk(modelUrl.toString());
-      final body = response.body;
-      if (body == null) {
-        throw StateError('The model download returned no body.');
-      }
-      final reader = body.getReader() as web.ReadableStreamDefaultReader;
-      var received = 0;
-      while (true) {
-        final chunk = await reader.read().toDart;
-        if (chunk.done) break;
-        final value = chunk.value as JSObject;
-        received += value.getProperty<JSNumber>('byteLength'.toJS).toDartInt;
-        await writable.write(value).toDart;
-        onProgress?.call((received / contentLength).clamp(0, 1).toDouble());
-      }
-    } finally {
-      await writable.close().toDart;
-    }
-
-    // Ask the browser not to evict the copy under storage pressure.
-    try {
-      await web.window.navigator.storage.persist().toDart;
-    } catch (_) {
-      // Best-effort only.
-    }
-    return (await handle.getFile().toDart);
+    return ensureArtifactFromUrl(
+      directory,
+      modelUrl,
+      contentLength: contentLength,
+      onProgress: onProgress,
+    );
   }
 
   static Future<web.Response> _fetchOk(String url) async {

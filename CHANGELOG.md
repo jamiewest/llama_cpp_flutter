@@ -1,5 +1,58 @@
 # Changelog
 
+## 0.5.0
+
+- New `ArtifactStore`, exported from `package:llama_cpp_flutter`: app-managed
+  storage for model artifacts, with one API on every platform — a directory
+  the app names on iOS/macOS, the origin-private file system on web. Build
+  one with `createArtifactStore`, then `fetch` a URL or `importFile` /
+  `importStream` a local file into it, and `resolve` the stored keys into the
+  `localPath` / `localMmprojPath` / `localDraftPath` arguments
+  `loadModel` takes. `list`, `lookup`, `totalSizeBytes`, and `delete` are
+  what a model-library UI needs to show users what is on their device and
+  take it back off.
+
+  This is the alternative to an engine's opaque cache. Previously a host app
+  could either hand `loadModel` a path it managed entirely itself (native
+  only) or let the runtime download to somewhere it could not enumerate —
+  on web, into wllama's internal URL cache.
+
+  Downloads resume where they stopped and never report a partial file as
+  complete: native transfers finalize through `ModelDownloader`'s `.part`
+  rename, and web transfers carry an in-flight marker alongside the data.
+  `importFile` copies by default — a macOS document picker hands back the
+  user's real path — and moves only when the caller opts in with
+  `moveSource`, renaming instead of duplicating a multi-gigabyte GGUF when
+  the source is on the same volume. Storage failures surface as
+  `ArtifactStorageException`, with `isQuotaExceeded` set when the browser is
+  out of room.
+
+  On web, `resolve` returns opaque handles rather than blob URLs, and the
+  runtime dereferences them straight to their stored files. A model past the
+  ~2 GiB wasm32 per-file limit is split into stageable parts from disk, as
+  the runtime's own oversized-model path already did — so managed storage
+  handles large models transparently instead of reading gigabytes back
+  through the network stack. Speculative-decoding draft models stay
+  native-only.
+
+- The web runtime's oversized-model cache now writes through the same OPFS
+  directory and names as `ArtifactStore`, so a model it downloaded on its
+  own is listable and deletable through managed storage. Artifacts cached by
+  earlier versions are adopted in place, not re-downloaded.
+
+- `package:llama_cpp_flutter/gguf.dart` adds `importedArtifactFileName` and
+  `artifactDisplayName` alongside `stableArtifactFileName`.
+
+- Example: the hidden model cache is now a user-managed model library built
+  on `ArtifactStore`. Models are added from the catalog, from a download
+  URL, or from GGUF files on the device — each with an optional vision
+  projector and, on native, a draft model — and the library shows what is
+  stored, what it costs, and which model is loaded. Entries are editable
+  (save, or save and reload), deletion is confirmed and removes only files
+  no other entry references, and the catalog is persisted and reconciled
+  with storage at startup. Image attachments are enabled only while the
+  loaded model has a projector.
+
 ## 0.4.0
 
 - New `TokenSmoother` stream transformer and the `Stream<String>.smoothed()`

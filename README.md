@@ -91,6 +91,36 @@ entirely and use the [`ChatClient` adapter](#using-with-the-agents-framework).
   directly (Hugging Face `resolve` URLs send the CORS headers browsers
   need). `huggingFaceModelUri` builds those URLs on every platform.
 
+- **Any platform, app-managed:** build an `ArtifactStore` and let it own the
+  bytes. Same API everywhere — a directory you name on iOS/macOS, the
+  origin-private file system in the browser — so an app that shows users
+  what is on their device, how much space it takes, and lets them delete it
+  needs one code path:
+
+  ```dart
+  final store = createArtifactStore(directory: cacheDir.path); // web: ignored
+  final model = await store.fetch(spec.modelUrl, onProgress: onProgress);
+  final mmproj = await store.fetch(spec.mmprojUrl!);
+
+  final paths = await store.resolve(
+    modelKey: model.key,
+    mmprojKey: mmproj.key,
+  );
+  final session = await runtime.loadModel(
+    spec,
+    localPath: paths.modelPath,
+    localMmprojPath: paths.mmprojPath,
+  );
+  ```
+
+  Downloads resume, imports (`importFile` on native, `importStream`
+  anywhere) land atomically, and `list`, `totalSizeBytes`, and `delete`
+  cover the rest. On the web the resolved paths are opaque handles the
+  runtime dereferences straight to their stored files, so a model past the
+  ~2 GiB wasm32 per-file limit is still split and staged transparently
+  instead of being read back through the network stack. Speculative-decoding
+  draft models remain native-only; don't pass `draftKey` on the web.
+
 ### Web notes
 
 The wllama Wasm binary ships as a Flutter asset — no extra setup. For
