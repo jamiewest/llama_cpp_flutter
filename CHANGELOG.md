@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Upstream: llama.cpp pin bumped `b10069` → `b10091` (native
+  xcframework). Vendored wllama wasm confirmed at `@wllama/wllama` 3.5.1.
+- New maintenance pipeline: `tool/update_deps.sh` (native re-pin with
+  ABI check), `tool/update_wllama.sh` (wasm refresh with recorded
+  provenance), `tool/check_llama_ext_abi.sh` (staging-ABI tripwire), a CI
+  workflow (analyze/test, ABI check, macOS link build), and a weekly
+  workflow that re-pins both backends to the same llama.cpp release and
+  opens a PR — including rebuilding the wllama wasm against the pinned
+  tag.
+
 ## 0.3.0
 
 - New: `generateEvents()` on `LlamaSession` — a typed

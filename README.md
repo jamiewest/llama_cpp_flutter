@@ -230,6 +230,12 @@ LLAMA_CPP_FLUTTER_SKIP_FETCH=1 pod install
 Downloads are always verified against the sha256 pinned in
 `tool/versions.env` (or the explicit override above) before unpacking.
 
+Both backends track upstream automatically: a weekly workflow re-pins the
+native xcframework to the latest llama.cpp release and rebuilds the wllama
+wasm against that same tag, opening a PR gated by CI (ABI check + macOS
+link). Manual equivalents: `tool/update_deps.sh` and
+`tool/update_wllama.sh`.
+
 This writes `darwin/Frameworks/llama.xcframework`. As a fallback, build from
 source with `./scripts/build_llama_xcframework.sh` (requires Xcode + CMake;
 `LLAMA_REF=<tag-or-commit>` to pin, `LLAMA_ALL_PLATFORMS=1` for every Apple

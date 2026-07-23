@@ -1,0 +1,93 @@
+name: Update upstream deps
+
+# Weekly re-pin of both inference backends to the same upstream llama.cpp:
+#   1. bump the native xcframework pin to the latest llama.cpp release
+#   2. refresh the vendored wllama wasm from the latest npm release
+#   3. rebuild that wasm from wllama's sources with the llama.cpp submodule
+#      set to the (new) pinned tag, so web and native run the same upstream
+# Opens/updates a PR with whatever changed; CI on the PR is the gate.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bump llama.cpp pin to latest release
+        run: NO_INSTALL=1 ./tool/update_deps.sh
+
+      - name: Refresh wllama wasm from latest npm release
+        run: ./tool/update_wllama.sh
+
+      - name: Read pins
+        id: pins
+        run: |
+          source tool/versions.env
+          echo "llama_tag=$LLAMA_CPP_TAG" >> "$GITHUB_OUTPUT"
+          echo "wllama_version=$WLLAMA_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build wllama wasm against pinned llama.cpp
+        id: wasmbuild
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git clone --branch "${{ steps.pins.outputs.wllama_version }}" \
+            --depth 1 https://github.com/ngxson/wllama /tmp/wllama
+          cd /tmp/wllama
+          git submodule update --init --depth 1 llama.cpp
+          git -C llama.cpp fetch --depth 1 origin \
+            tag "${{ steps.pins.outputs.llama_tag }}"
+          git -C llama.cpp checkout "${{ steps.pins.outputs.llama_tag }}"
+          SKIP_COMPAT=1 bash scripts/build_wasm.sh
+          test -f src/wasm/wllama.wasm
+
+      - name: Vendor the synced wasm
+        if: steps.wasmbuild.outcome == 'success'
+        run: |
+          cp /tmp/wllama/src/wasm/wllama.wasm lib/assets/wasm/wllama.wasm
+          SHA=$(sha256sum lib/assets/wasm/wllama.wasm | awk '{print $1}')
+          sed -i \
+            -e "s|^WLLAMA_WASM_SOURCE=.*|WLLAMA_WASM_SOURCE=wllama-${{ steps.pins.outputs.wllama_version }}+llama.cpp-${{ steps.pins.outputs.llama_tag }}|" \
+            -e "s|^WLLAMA_WASM_SHA256=.*|WLLAMA_WASM_SHA256=$SHA|" \
+            tool/versions.env
+
+      - name: Open or update PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "Everything already up to date."
+            exit 0
+          fi
+          BRANCH=chore/update-deps
+          TITLE="chore: llama.cpp ${{ steps.pins.outputs.llama_tag }}, wllama ${{ steps.pins.outputs.wllama_version }}"
+          if [ "${{ steps.wasmbuild.outcome }}" = "success" ]; then
+            WASM_NOTE="wasm rebuilt from wllama ${{ steps.pins.outputs.wllama_version }} sources with llama.cpp ${{ steps.pins.outputs.llama_tag }} (synced with the native pin)."
+          else
+            WASM_NOTE="**Synced wasm build FAILED** — the vendored wasm is the stock npm build (its embedded llama.cpp lags the native pin). See the workflow logs."
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add -A
+          git commit -m "$TITLE"
+          git push -f origin "$BRANCH"
+          BODY=$(printf '%s\n\n- %s\n\n%s' \
+            "Automated weekly upstream re-pin." \
+            "$WASM_NOTE" \
+            "Before merging: CI must be green (ABI check + macOS link), and when the wasm changed, sanity-check a web build in a browser.")
+          if gh pr list --head "$BRANCH" --state open --json number -q '.[0].number' | grep -q .; then
+            gh pr edit "$BRANCH" --title "$TITLE" --body "$BODY"
+          else
+            gh pr create --head "$BRANCH" --title "$TITLE" --body "$BODY"
+          fi

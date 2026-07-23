@@ -44,3 +44,28 @@ When it fails, update **together**:
 
 The `build-macos` CI job is the link-time backstop: if the mangled symbols
 drift, the example app fails to link.
+
+## Upstream pins and the weekly update PR
+
+All pins live in `tool/versions.env`: the llama.cpp release tag + xcframework
+zip sha (native), and the wllama version + wasm sha/source (web).
+
+`.github/workflows/update-deps.yml` (weekly cron + manual dispatch) re-pins
+both backends to the same upstream and opens a PR:
+
+1. `tool/update_deps.sh` bumps the native pin to the latest llama.cpp
+   release (downloads the zip, records the sha, runs the ABI check).
+2. `tool/update_wllama.sh` refreshes `lib/assets/wasm/wllama.wasm` from the
+   latest `@wllama/wllama` npm release (the fallback artifact).
+3. The workflow then rebuilds that wasm from wllama's sources (their
+   docker/emsdk build, `SKIP_COMPAT=1`) with the `llama.cpp` submodule
+   checked out at the freshly pinned tag — so web and native run the same
+   upstream. If that build fails (wllama's glue drifted against newer
+   llama.cpp), the PR still opens with the npm wasm and says so; fixing the
+   drift means patching wllama (fork it at that point) or waiting for their
+   next release.
+
+The wasm must stay paired with the `@wllama/wllama` JS version consumers
+load (`WLLAMA_VERSION`); custom builds keep the pairing by building from
+wllama's sources at exactly that tag, changing only the submodule. When a
+PR changes the wasm, sanity-check a web build in a browser before merging.

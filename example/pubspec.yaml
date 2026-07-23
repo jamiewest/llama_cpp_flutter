@@ -1,5 +1,9 @@
 name: llama_cpp_flutter_example
-description: Minimal app that links llama_cpp_flutter against the vendored llama.xcframework (used by CI as the link-level smoke test).
+description: >-
+  Demo chat app for llama_cpp_flutter: flutter_ai_toolkit chat UI over a
+  local GGUF model with configurable model + agent, on macOS/iOS and web.
+  Also serves as CI's link-level smoke test against the vendored
+  llama.xcframework.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -7,10 +11,14 @@ environment:
   sdk: ^3.11.5
 
 dependencies:
+  agents: ^1.5.0
+  extensions: ^0.5.0
   flutter:
     sdk: flutter
+  flutter_ai_toolkit: ^1.0.0
   llama_cpp_flutter:
     path: ../
+  path_provider: ^2.1.4
 
 dev_dependencies:
   flutter_lints: ^6.0.0
