@@ -210,8 +210,7 @@ final class WebLlamaRuntime implements LlamaRuntime {
           if (spec.mmprojUrl != null) 'mmprojUrl': spec.mmprojUrl.toString(),
         }.jsify(),
         <String, Object?>{
-          'n_ctx': spec.contextSize,
-          'n_gpu_layers': spec.gpuLayers,
+          ..._engineOptions(spec),
           'useCache': true,
           if (onProgress != null)
             'progressCallback': _createProgressCallback(onProgress),
@@ -227,12 +226,32 @@ final class WebLlamaRuntime implements LlamaRuntime {
   ) async {
     await instance.callMethodVarArgs<JSPromise<JSAny?>>('loadModel'.toJS, [
       blobs.toJS,
+      _engineOptions(spec).jsify(),
+    ]).toDart;
+  }
+
+  /// Engine options shared by the URL and blob load routes.
+  ///
+  /// Beyond the spec-driven context size (and the GPU-layer hint, inert on
+  /// wasm), these tune llama.cpp for the browser:
+  /// - `n_threads` leaves one core free: wllama's default is
+  ///   `hardwareConcurrency`, which starves the main thread during prefill.
+  ///   wllama itself forces 1 when the page is not cross-origin isolated.
+  /// - `flash_attn` plus a q8_0 KV cache halves KV memory — the scarce
+  ///   resource under wasm32's 4 GiB address space (quantizing the V cache
+  ///   requires flash attention).
+  static Map<String, Object?> _engineOptions(ModelSpec spec) =>
       <String, Object?>{
         'n_ctx': spec.contextSize,
         'n_gpu_layers': spec.gpuLayers,
-      }.jsify(),
-    ]).toDart;
-  }
+        'n_threads': math.max(
+          1,
+          web.window.navigator.hardwareConcurrency - 1,
+        ),
+        'flash_attn': true,
+        'cache_type_k': 'q8_0',
+        'cache_type_v': 'q8_0',
+      };
 
   /// Returns [model] as the blob list wllama can stage: the blob itself
   /// when it fits the wasm32 per-file limit, otherwise GGUF splits
@@ -373,9 +392,9 @@ final class _WebLlamaSession implements LlamaSession {
   /// `max_tokens` so prompt + output stays within the window.
   final int _contextSize;
 
-  /// Pessimistic characters-per-token ratio for the token estimate below.
-  /// Real tokenization varies, but ~3 chars/token over-counts for English
-  /// prose, which is what we want for a conservative "does it fit" guard.
+  /// Pessimistic characters-per-token ratio, used only when the real
+  /// tokenizer fails. ~3 chars/token over-counts for English prose, which
+  /// is what we want for a conservative "does it fit" guard.
   static const double _charsPerToken = 3;
 
   /// Aborts the in-flight run, set by [generate] for [cancel] to invoke.
@@ -428,31 +447,6 @@ final class _WebLlamaSession implements LlamaSession {
 
     final controller = StreamController<String>();
 
-    // A prompt longer than the context window makes wllama's prefill hang
-    // indefinitely instead of erroring. Estimate prompt tokens pessimistically
-    // and fail fast with an actionable message; also clamp `max_tokens` so the
-    // prompt plus the requested output stays within `n_ctx`. Skip for media
-    // turns, whose token cost is dominated by mtmd image/audio tokens we can't
-    // size from the text here.
-    var effectiveMaxTokens = maxTokens;
-    if (!isMediaTurn) {
-      final estimatedPromptTokens = (prompt.length / _charsPerToken).ceil();
-      if (estimatedPromptTokens >= _contextSize) {
-        controller
-          ..addError(
-            StateError(
-              'The prompt (~$estimatedPromptTokens tokens) does not fit the '
-              'model context ($_contextSize tokens). Increase the model '
-              'context size or shorten the prompt (e.g. fewer tools).',
-            ),
-          )
-          ..close();
-        return StopSequenceFilter(stopSequences).bind(controller.stream);
-      }
-      final room = _contextSize - estimatedPromptTokens;
-      effectiveMaxTokens = maxTokens.clamp(1, room);
-    }
-
     // wllama has no server-side stop sequences and keeps generating to
     // `max_tokens` unless aborted, so every way this run can end early — a
     // stop-sequence match in the Dart filter, cancel(), or the listener
@@ -469,40 +463,14 @@ final class _WebLlamaSession implements LlamaSession {
     _abortCurrentRun = abortRun;
     final abortSignal = abortController?.getProperty<JSAny?>('signal'.toJS);
 
-    final options =
-        <String, Object?>{
-              if (isMediaTurn)
-                'messages': _chatMessages(turns!)
-              else
-                'prompt': prompt,
-              'stream': true,
-              'max_tokens': effectiveMaxTokens,
-              'temp': temperature,
-              if (topK != null) 'top_k': topK,
-              if (topP != null) 'top_p': topP,
-              if (seed != null) 'seed': seed,
-              if (abortSignal != null) 'abortSignal': abortSignal,
-            }.jsify()
-            as JSObject;
     // Token accounting: wllama invokes onData once per generated token, and
-    // its tokenizer sizes the prompt. The count runs concurrently with the
-    // generation and is best-effort — a tokenize failure only skips stats,
-    // never the generation. Media turns approximate: the count covers the
-    // rendered text prompt, not mtmd image/audio tokens.
+    // its tokenizer sizes the prompt (measured up front, before generation).
+    // The count is best-effort — a tokenize failure only skips stats, never
+    // the generation. Media turns approximate: the count covers the rendered
+    // text prompt, not mtmd image/audio tokens.
     var generatedCount = 0;
-    final promptTokenCount = onStats == null
-        ? Future<int?>.value()
-        : _countPromptTokens(prompt);
-
-    options['onData'] = ((JSObject chunk) {
-      generatedCount++;
-      final text = isMediaTurn ? _chatChunkText(chunk) : _chunkText(chunk);
-      if (text.isNotEmpty && !controller.isClosed) {
-        controller.add(text);
-      }
-    }).toJS;
-
-    final requestedMaxTokens = effectiveMaxTokens;
+    int? promptTokens;
+    var requestedMaxTokens = maxTokens;
     var settled = false;
     // Closes the token controller and then reports stats (best-effort).
     // Invoked exactly once, from whichever of the promise's resolution or a
@@ -517,8 +485,8 @@ final class _WebLlamaSession implements LlamaSession {
       final wasCancelled = deliberateAbort;
       if (!controller.isClosed) await controller.close();
       if (onStats != null) {
-        final promptTokens = await promptTokenCount;
-        if (promptTokens != null) {
+        final measuredPromptTokens = promptTokens;
+        if (measuredPromptTokens != null) {
           final LlamaFinishReason reason;
           if (stopMatched) {
             reason = LlamaFinishReason.stopSequence;
@@ -531,7 +499,7 @@ final class _WebLlamaSession implements LlamaSession {
           }
           onStats(
             LlamaGenerationStats(
-              promptTokenCount: promptTokens,
+              promptTokenCount: measuredPromptTokens,
               cachedTokenCount: 0,
               generatedTokenCount: generatedCount,
               finishReason: reason,
@@ -541,9 +509,71 @@ final class _WebLlamaSession implements LlamaSession {
       }
     }
 
-    final method = isMediaTurn ? 'createChatCompletion' : 'createCompletion';
-    unawaited(
-      _wllama
+    // A prompt longer than the context window makes wllama's prefill hang
+    // indefinitely instead of erroring. Size the prompt with the real
+    // tokenizer — falling back to a pessimistic ~[_charsPerToken] chars/token
+    // estimate when tokenization fails — and fail fast with an actionable
+    // message; also clamp `max_tokens` so the prompt plus the requested
+    // output stays within `n_ctx`. Media turns skip the guard: their token
+    // cost is dominated by mtmd image/audio tokens we can't size from the
+    // text here.
+    unawaited(() async {
+      var effectiveMaxTokens = maxTokens;
+      if (!isMediaTurn || onStats != null) {
+        promptTokens = await _countPromptTokens(prompt);
+      }
+      if (!isMediaTurn) {
+        final guardTokens =
+            promptTokens ?? (prompt.length / _charsPerToken).ceil();
+        if (guardTokens >= _contextSize) {
+          if (!controller.isClosed) {
+            controller
+              ..addError(
+                StateError(
+                  'The prompt ($guardTokens tokens) does not fit the '
+                  'model context ($_contextSize tokens). Increase the model '
+                  'context size or shorten the prompt (e.g. fewer tools).',
+                ),
+              )
+              ..close();
+          }
+          return;
+        }
+        final room = _contextSize - guardTokens;
+        effectiveMaxTokens = maxTokens.clamp(1, room);
+      }
+      requestedMaxTokens = effectiveMaxTokens;
+      // Cancelled while tokenizing: report and stop before generation starts.
+      if (deliberateAbort) {
+        await settle();
+        return;
+      }
+
+      final options =
+          <String, Object?>{
+                if (isMediaTurn)
+                  'messages': _chatMessages(turns!)
+                else
+                  'prompt': prompt,
+                'stream': true,
+                'max_tokens': effectiveMaxTokens,
+                'temp': temperature,
+                if (topK != null) 'top_k': topK,
+                if (topP != null) 'top_p': topP,
+                if (seed != null) 'seed': seed,
+                if (abortSignal != null) 'abortSignal': abortSignal,
+              }.jsify()
+              as JSObject;
+      options['onData'] = ((JSObject chunk) {
+        generatedCount++;
+        final text = isMediaTurn ? _chatChunkText(chunk) : _chunkText(chunk);
+        if (text.isNotEmpty && !controller.isClosed) {
+          controller.add(text);
+        }
+      }).toJS;
+
+      final method = isMediaTurn ? 'createChatCompletion' : 'createCompletion';
+      await _wllama
           .callMethod<JSPromise<JSAny?>>(method.toJS, options)
           .toDart
           .then((_) => settle())
@@ -560,8 +590,8 @@ final class _WebLlamaSession implements LlamaSession {
                 ..addError(error, stackTrace)
                 ..close();
             }
-          }),
-    );
+          });
+    }());
 
     final filtered = StopSequenceFilter(
       stopSequences,
