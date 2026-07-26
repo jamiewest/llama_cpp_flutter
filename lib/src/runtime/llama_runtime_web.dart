@@ -90,7 +90,7 @@ final class WebLlamaRuntime implements LlamaRuntime {
         modelUrl: selectedLocalPath,
         mmprojUrl: localMmprojPath?.trim(),
       );
-      return _WebLlamaSession(instance, spec.contextSize);
+      return _WebLlamaSession(instance, _effectiveContextSize(instance, spec));
     }
 
     // A single file of 2 GiB or more cannot be staged in wasm32, so it
@@ -111,7 +111,31 @@ final class WebLlamaRuntime implements LlamaRuntime {
       );
       await _loadFromUrl(instance, spec, onProgress);
     }
-    return _WebLlamaSession(instance, spec.contextSize);
+    return _WebLlamaSession(instance, _effectiveContextSize(instance, spec));
+  }
+
+  /// The context window the loaded model actually has.
+  ///
+  /// llama.cpp's server slot (which wllama wraps) silently caps its context
+  /// at the model's training context, so a spec asking for more than
+  /// `n_ctx_train` gets `n_ctx_train`. Budgeting against the requested size
+  /// would let over-long prompts through the fail-fast guard only to die in
+  /// the wasm with a confusing error naming a window the caller never chose.
+  static int _effectiveContextSize(JSObject instance, ModelSpec spec) {
+    try {
+      final info = instance.callMethod<JSObject?>(
+        'getLoadedContextInfo'.toJS,
+      );
+      final trainContext = info
+          ?.getProperty<JSNumber?>('n_ctx_train'.toJS)
+          ?.toDartInt;
+      if (trainContext != null && trainContext > 0) {
+        return math.min(spec.contextSize, trainContext);
+      }
+    } on Object {
+      // Older wllama builds without getLoadedContextInfo: keep the spec.
+    }
+    return spec.contextSize;
   }
 
   /// Stages already-resolved local artifacts (splitting the model if

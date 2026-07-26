@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.2
+
+- **Fixed: on the web, prompt budgeting used the requested context size even
+  when the runtime had silently capped it.** llama.cpp's server slot (which
+  wllama wraps) caps its context at the model's training context
+  (`n_ctx_train`), so loading e.g. a 2048-token-trained model with
+  `contextSize: 8192` really allocates 2048 tokens. The session still budgeted
+  against 8192: the fail-fast guard passed prompts that could not fit, which
+  then died in the wasm with `request (N tokens) exceeds the available context
+  size (2048 tokens)` — an error naming a window the caller never chose — and
+  `max_tokens` clamping targeted the wrong window too. The web session now
+  reads `n_ctx_train` from wllama's loaded-context info and budgets against
+  `min(contextSize, n_ctx_train)`, so oversized prompts fail fast with the
+  actionable message and output clamping matches the real allocation.
+
 ## 0.6.1
 
 - **Fixed: a failed model download or import on the web reported
