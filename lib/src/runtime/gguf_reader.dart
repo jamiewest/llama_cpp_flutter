@@ -31,6 +31,43 @@ final class GgufTruncated implements Exception {
   const GgufTruncated();
 }
 
+/// `2^32`, the little-endian split point for the 64-bit helpers below.
+const int _twoPow32 = 0x100000000;
+
+/// Largest high word that still lands inside the exact-integer range of a
+/// JavaScript double (`2^53 - 1`).
+const int _maxHighWord = 0x1fffff;
+
+/// Reads the little-endian unsigned 64-bit value at [offset].
+///
+/// `ByteData.getUint64` throws on dart2js — JavaScript has no 64-bit
+/// integer type — and the client-side GGUF splitter that needs this runs
+/// *only* on the web. Compose the value from its two 32-bit halves
+/// instead: `+` and `*` are exact below `2^53`, which every GGUF offset,
+/// length, and count is.
+int ggufReadUint64(ByteData data, int offset) {
+  final low = data.getUint32(offset, Endian.little);
+  final high = data.getUint32(offset + 4, Endian.little);
+  if (high > _maxHighWord) {
+    throw const FormatException(
+      'The GGUF header contains a 64-bit value too large to represent.',
+    );
+  }
+  return low + high * _twoPow32;
+}
+
+/// Writes [value] as a little-endian unsigned 64-bit integer at [offset].
+///
+/// The mirror of [ggufReadUint64]; `ByteData.setUint64` is equally
+/// unsupported on dart2js. Split with `%`/`~/` rather than bitwise `&`
+/// and `>>`, whose dart2js semantics are 32-bit and would silently
+/// corrupt values at or above `2^32`.
+void ggufWriteUint64(ByteData data, int offset, int value) {
+  data
+    ..setUint32(offset, value % _twoPow32, Endian.little)
+    ..setUint32(offset + 4, value ~/ _twoPow32, Endian.little);
+}
+
 /// A little-endian cursor over a GGUF header prefix.
 ///
 /// Reads throw [GgufTruncated] when the prefix ends mid-value and
@@ -54,7 +91,7 @@ final class GgufReader {
 
   int uint64() {
     _ensure(8);
-    final value = _data.getUint64(offset, Endian.little);
+    final value = ggufReadUint64(_data, offset);
     offset += 8;
     return value;
   }

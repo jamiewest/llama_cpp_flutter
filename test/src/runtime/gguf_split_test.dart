@@ -207,9 +207,9 @@ _BuiltGguf _buildGguf({
   final builder = BytesBuilder(copy: false);
   final fixed = ByteData(24)
     ..setUint32(0, 0x46554747, Endian.little)
-    ..setUint32(4, 3, Endian.little)
-    ..setUint64(8, tensorSizes.length, Endian.little)
-    ..setUint64(16, kvs.length, Endian.little);
+    ..setUint32(4, 3, Endian.little);
+  _setU64(fixed, 8, tensorSizes.length);
+  _setU64(fixed, 16, kvs.length);
   builder.add(fixed.buffer.asUint8List());
 
   kvs.forEach((key, value) {
@@ -237,9 +237,9 @@ _BuiltGguf _buildGguf({
     builder.add(_string('tensor_$i'));
     final info = ByteData(24)
       ..setUint32(0, 1, Endian.little)
-      ..setUint64(4, tensorSizes[i] ~/ 4, Endian.little)
-      ..setUint32(12, 0, Endian.little)
-      ..setUint64(16, offset, Endian.little);
+      ..setUint32(12, 0, Endian.little);
+    _setU64(info, 4, tensorSizes[i] ~/ 4);
+    _setU64(info, 16, offset);
     builder.add(info.buffer.asUint8List());
     offset = (offset + tensorSizes[i] + alignment - 1) ~/ alignment * alignment;
   }
@@ -264,9 +264,24 @@ _BuiltGguf _buildGguf({
   return _BuiltGguf(builder.toBytes(), tensorData);
 }
 
+/// Little-endian 64-bit helpers written the long way, so these fixtures
+/// build under dart2js (where `ByteData.get/setUint64` throw) as well as
+/// on the VM. Deliberately independent of the production helpers, which
+/// these tests exist to check.
+void _setU64(ByteData data, int at, int value) {
+  data
+    ..setUint32(at, value % 0x100000000, Endian.little)
+    ..setUint32(at + 4, value ~/ 0x100000000, Endian.little);
+}
+
+int _getU64(ByteData data, int at) =>
+    data.getUint32(at, Endian.little) +
+    data.getUint32(at + 4, Endian.little) * 0x100000000;
+
 Uint8List _string(String value) {
   final bytes = utf8.encode(value);
-  final data = ByteData(8)..setUint64(0, bytes.length, Endian.little);
+  final data = ByteData(8);
+  _setU64(data, 0, bytes.length);
   final builder = BytesBuilder(copy: false)
     ..add(data.buffer.asUint8List())
     ..add(bytes);
@@ -293,7 +308,7 @@ final class _DecodedGguf {
     }
 
     int u64() {
-      final v = data.getUint64(at, Endian.little);
+      final v = _getU64(data, at);
       at += 8;
       return v;
     }

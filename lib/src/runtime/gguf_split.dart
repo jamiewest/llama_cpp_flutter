@@ -204,9 +204,9 @@ Uint8List _buildSplitHeader({
 
   final fixed = ByteData(24)
     ..setUint32(0, ggufMagic, Endian.little)
-    ..setUint32(4, parsed.version, Endian.little)
-    ..setUint64(8, partTensors.length, Endian.little)
-    ..setUint64(16, kvRanges.length + 3, Endian.little);
+    ..setUint32(4, parsed.version, Endian.little);
+  ggufWriteUint64(fixed, 8, partTensors.length);
+  ggufWriteUint64(fixed, 16, kvRanges.length + 3);
   builder
     ..add(fixed.buffer.asUint8List())
     ..add(_kvBytes(parsed.bytes, kvRanges))
@@ -220,8 +220,8 @@ Uint8List _buildSplitHeader({
     builder.add(
       Uint8List.sublistView(parsed.bytes, tensor.start, tensor.end - 8),
     );
-    final offset = ByteData(8)
-      ..setUint64(0, tensor.offset - baseOffset, Endian.little);
+    final offset = ByteData(8);
+    ggufWriteUint64(offset, 0, tensor.offset - baseOffset);
     builder.add(offset.buffer.asUint8List());
   }
 
@@ -251,8 +251,8 @@ Uint8List _int32Kv(String key, int value) {
 Uint8List _kv(String key, int type, ByteData value) {
   final keyBytes = utf8.encode(key);
   final data = ByteData(8 + keyBytes.length + 4 + value.lengthInBytes)
-    ..setUint64(0, keyBytes.length, Endian.little)
     ..setUint32(8 + keyBytes.length, type, Endian.little);
+  ggufWriteUint64(data, 0, keyBytes.length);
   final bytes = data.buffer.asUint8List()
     ..setRange(8, 8 + keyBytes.length, keyBytes);
   bytes.setRange(

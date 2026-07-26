@@ -91,9 +91,9 @@ Uint8List _buildHeader({required Map<String, Object> kvs}) {
   final builder = BytesBuilder(copy: false);
   final fixed = ByteData(24)
     ..setUint32(0, 0x46554747, Endian.little)
-    ..setUint32(4, 3, Endian.little)
-    ..setUint64(8, 0, Endian.little)
-    ..setUint64(16, kvs.length, Endian.little);
+    ..setUint32(4, 3, Endian.little);
+  _setU64(fixed, 8, 0);
+  _setU64(fixed, 16, kvs.length);
   builder.add(fixed.buffer.asUint8List());
 
   kvs.forEach((key, value) {
@@ -116,9 +116,19 @@ Uint8List _buildHeader({required Map<String, Object> kvs}) {
   return builder.toBytes();
 }
 
+/// Little-endian 64-bit writer written the long way, so these fixtures
+/// build under dart2js (where `ByteData.setUint64` throws) as well as on
+/// the VM.
+void _setU64(ByteData data, int at, int value) {
+  data
+    ..setUint32(at, value % 0x100000000, Endian.little)
+    ..setUint32(at + 4, value ~/ 0x100000000, Endian.little);
+}
+
 Uint8List _string(String value) {
   final bytes = utf8.encode(value);
-  final data = ByteData(8)..setUint64(0, bytes.length, Endian.little);
+  final data = ByteData(8);
+  _setU64(data, 0, bytes.length);
   final builder = BytesBuilder(copy: false)
     ..add(data.buffer.asUint8List())
     ..add(bytes);

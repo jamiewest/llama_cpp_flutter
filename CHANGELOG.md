@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Fixed: loading a GGUF of 2 GiB or more on the web failed with
+  `Unsupported operation: Uint64 accessor not supported by dart2js`.**
+  Such a file cannot be staged in wasm32, so it goes through the
+  client-side splitter — which read and wrote its 64-bit header fields
+  with `ByteData.get/setUint64`. Those accessors throw under dart2js,
+  the one platform the splitter runs on, so the path failed for every
+  oversized model. The 64-bit fields are now composed from their two
+  32-bit halves. GGUF header tests run under `--platform chrome` to keep
+  the JS path covered.
+
 ## 0.6.0
 
 **Breaking: `agents` is no longer a dependency.** This package now depends
