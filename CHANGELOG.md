@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.0
+
+- **The web runtime now tunes llama.cpp for the browser.** Both web load
+  routes (URL and blob/OPFS) pass shared engine options to wllama:
+  `flash_attn` with a `q8_0` KV cache, halving KV-cache memory — the scarce
+  resource under wasm32's 4 GiB address space and what makes an ~8k context
+  viable next to a 2–3 GB model — and an explicit `n_threads` of
+  `hardwareConcurrency - 1`, leaving one core for the UI thread instead of
+  wllama's default of every core (wllama still forces single-threaded
+  execution when the page is not cross-origin isolated).
+- **The web prompt-fit guard now measures prompts with the real tokenizer.**
+  The guard previously estimated ~3 characters per token, deliberately
+  pessimistic, so prompts that actually fit the context window could be
+  rejected. The prompt is now sized with wllama's `tokenize()` before
+  generation — the estimate remains only as a fallback when tokenization
+  fails — and the measured count is reused for generation stats instead of
+  a second concurrent tokenize.
+
 ## 0.6.2
 
 - **Fixed: on the web, prompt budgeting used the requested context size even

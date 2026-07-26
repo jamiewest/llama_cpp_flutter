@@ -3,7 +3,7 @@ description: >-
   On-device LLM inference for Flutter: llama.cpp with Metal on iOS/macOS,
   wllama on web. Streaming sessions, chat formats, model downloads, and
   memory-aware multi-agent orchestration.
-version: 0.6.2
+version: 0.7.0
 repository: https://github.com/jamiewest/llama_cpp_flutter
 topics:
   - llm
