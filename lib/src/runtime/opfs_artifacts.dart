@@ -225,10 +225,15 @@ Future<web.File> ensureArtifactFromUrl(
       }
     }
   } catch (error) {
-    await writable.close().toDart;
+    await _discardWritable(writable);
     throw _asStorageFailure(error, 'downloading $url');
   }
-  await writable.close().toDart;
+  try {
+    await writable.close().toDart;
+  } catch (error) {
+    await _discardWritable(writable);
+    throw _asStorageFailure(error, 'downloading $url');
+  }
 
   if (total != null && received != total) {
     throw ArtifactStorageException(
@@ -264,13 +269,19 @@ Future<int> writeArtifactStream(
       }
     }
   } catch (error) {
-    await writable.close().toDart;
+    await _discardWritable(writable);
     // Unlike a download, an import cannot be resumed — the source stream is
     // spent — so a failed one leaves nothing behind to occupy storage.
     await removeArtifact(directory, key);
     throw _asStorageFailure(error, 'importing $key');
   }
-  await writable.close().toDart;
+  try {
+    await writable.close().toDart;
+  } catch (error) {
+    await _discardWritable(writable);
+    await removeArtifact(directory, key);
+    throw _asStorageFailure(error, 'importing $key');
+  }
 
   if (totalBytes != null && received != totalBytes) {
     await removeArtifact(directory, key);
@@ -281,6 +292,19 @@ Future<int> writeArtifactStream(
   await _clearPartial(directory, key);
   await _requestPersistence();
   return received;
+}
+
+/// Releases [writable] without masking the failure that prompted the discard.
+///
+/// `close()` on a stream whose `write()` already rejected throws
+/// `TypeError: Cannot close a ERRORED writable stream`, which would replace
+/// the real cause (quota, eviction, a dropped connection) and skip the
+/// cleanup that follows. `abort()` is valid in that state, and its own
+/// rejection is nothing the caller can act on.
+Future<void> _discardWritable(web.FileSystemWritableFileStream writable) async {
+  try {
+    await writable.abort().toDart;
+  } catch (_) {}
 }
 
 Future<void> _markPartial(

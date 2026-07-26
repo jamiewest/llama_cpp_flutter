@@ -1,6 +1,20 @@
 # Changelog
 
-## Unreleased
+## 0.6.1
+
+- **Fixed: a failed model download or import on the web reported
+  `TypeError: Cannot close a ERRORED writable stream` instead of the real
+  cause.** When a write into OPFS rejected — quota exhausted, the origin's
+  storage evicted, the connection dropped mid-transfer — the recovery path
+  called `close()` on the writable, which is invalid once the stream has
+  errored. The `TypeError` that raised was thrown from inside the `catch`
+  block, so it displaced the `ArtifactStorageException` that would have named
+  the actual failure. The stream is now discarded with `abort()`, which is
+  valid in that state, and the happy-path `close()` is guarded so a late sink
+  error surfaces as an `ArtifactStorageException` too. Because the `TypeError`
+  also escaped before the cleanup that followed it, a failed import left its
+  partial file and in-flight marker behind in OPFS rather than removing them;
+  that cleanup now runs.
 
 - **Fixed: loading a GGUF of 2 GiB or more on the web failed with
   `Unsupported operation: Uint64 accessor not supported by dart2js`.**
