@@ -61,7 +61,14 @@ that already passed its gates.
 ### `.github/workflows/update-llama-pin.yml` — native, daily
 
 `tool/update_deps.sh` bumps the pin to the latest llama.cpp release
-(downloads the zip, records the sha). The PR opens only if both gates pass:
+(downloads the zip, records the sha). "Latest" means the newest release whose
+xcframework zip is actually downloadable, not `releases/latest`: llama.cpp
+tags faster than its macOS job uploads assets, so the newest release often has
+no zip yet, and some never get one (b10156). Resolving blindly would 404 at
+random, which at a daily cadence becomes a recurring red run. The script walks
+back from newest until a zip responds.
+
+The PR opens only if both gates pass:
 
 1. the staging-ABI tripwire at the new tag, and
 2. the macOS link check (the example app builds against the new xcframework).

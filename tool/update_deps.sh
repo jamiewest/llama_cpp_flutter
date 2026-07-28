@@ -26,10 +26,28 @@ source "$VERSIONS"
 if [ -n "${1:-}" ]; then
   TAG="$1"
 else
-  TAG="$(curl --fail --silent --show-error \
-    https://api.github.com/repos/ggml-org/llama.cpp/releases/latest \
-    | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')"
-  [ -n "$TAG" ] || { echo "error: could not resolve latest release" >&2; exit 1; }
+  # llama.cpp tags releases faster than its macOS job uploads assets, so the
+  # newest release frequently has no xcframework zip yet (and the occasional
+  # one never gets one — b10156 shipped without it). Resolving plain
+  # `releases/latest` therefore 404s at random, which a daily cron would turn
+  # into a recurring red run. Walk back from newest and take the first release
+  # whose zip is actually downloadable.
+  TAG=""
+  for CANDIDATE in $(curl --fail --silent --show-error \
+      "https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=20" \
+      | grep -o '"tag_name": *"[^"]*"' | sed 's/.*: *"\(.*\)"/\1/'); do
+    if curl --fail --silent --head --location \
+        "https://github.com/ggml-org/llama.cpp/releases/download/${CANDIDATE}/llama-${CANDIDATE}-xcframework.zip" \
+        >/dev/null 2>&1; then
+      TAG="$CANDIDATE"
+      break
+    fi
+    echo "note: $CANDIDATE has no xcframework zip; trying the previous release" >&2
+  done
+  [ -n "$TAG" ] || {
+    echo "error: no release in the last 20 has an xcframework zip" >&2
+    exit 1
+  }
 fi
 
 if [ "$TAG" = "$LLAMA_CPP_TAG" ]; then
