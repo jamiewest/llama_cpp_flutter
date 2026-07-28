@@ -1,0 +1,176 @@
+name: Sync wllama wasm
+
+# Weekly rebuild of the vendored wasm against whatever llama.cpp tag is
+# currently pinned, so the web backend catches up to the native one.
+#
+# This is the expensive, fragile half of the old update-deps workflow: a
+# ~5-minute emscripten build that breaks whenever llama.cpp's common/ API
+# drifts under wllama's glue. It is deliberately split from the native pin
+# bump (update-llama-pin.yml) so that a compat break on the web side cannot
+# hold up a routine native re-pin — which is exactly what happened when
+# `use_mmap`/`use_mlock` moved out of `common_params`.
+#
+# It does NOT bump LLAMA_CPP_TAG. It builds against the tag already in
+# tool/versions.env, which the daily native workflow keeps fresh.
+#
+# There is no npm fallback here, on purpose. The old workflow refreshed the
+# wasm from npm first and vendored the synced build over it, so a failed sync
+# build left the *stock npm* wasm staged in the PR — silently replacing a
+# custom build that tracked the native pin with one that does not, widening
+# the skew under a "chore" title. Now a failed build vendors nothing, fails
+# loudly, and leaves the last known-good synced wasm in place.
+# tool/update_wllama.sh remains the manual/fallback path when you explicitly
+# want the npm artifact.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-wllama-wasm
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.vendor.outputs.changed }}
+      llama_tag: ${{ steps.pins.outputs.llama_tag }}
+      wllama_version: ${{ steps.vendor.outputs.wllama_version }}
+      source: ${{ steps.vendor.outputs.source }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read pins
+        id: pins
+        run: |
+          set -euo pipefail
+          source tool/versions.env
+          echo "llama_tag=$LLAMA_CPP_TAG" >> "$GITHUB_OUTPUT"
+          echo "sync_repo=${WLLAMA_SYNC_REPO:-ngxson/wllama}" >> "$GITHUB_OUTPUT"
+          echo "sync_ref=${WLLAMA_SYNC_REF:-$WLLAMA_VERSION}" >> "$GITHUB_OUTPUT"
+
+      # Builds from the fork branch carrying compat patches (cut from a wllama
+      # release tag) with the llama.cpp submodule overridden to the pinned tag.
+      # A failure here fails the job: no PR, no vendored artifact.
+      - name: Build wasm against the pinned llama.cpp
+        run: |
+          set -euo pipefail
+          git clone --branch "${{ steps.pins.outputs.sync_ref }}" \
+            --depth 1 "https://github.com/${{ steps.pins.outputs.sync_repo }}" /tmp/wllama
+          cd /tmp/wllama
+          git submodule update --init --depth 1 llama.cpp
+          git -C llama.cpp fetch --depth 1 origin \
+            tag "${{ steps.pins.outputs.llama_tag }}"
+          git -C llama.cpp checkout "${{ steps.pins.outputs.llama_tag }}"
+          SKIP_COMPAT=1 bash scripts/build_wasm.sh
+          test -f src/wasm/wllama.wasm
+
+      - name: Vendor the synced wasm
+        id: vendor
+        run: |
+          set -euo pipefail
+          cp /tmp/wllama/src/wasm/wllama.wasm lib/assets/wasm/wllama.wasm
+          SHA="$(sha256sum lib/assets/wasm/wllama.wasm | awk '{print $1}')"
+          # The JS-pairing version is whatever the sync sources actually are,
+          # which can lag the npm latest.
+          SRC_VERSION="$(python3 -c "import json; print(json.load(open('/tmp/wllama/package.json'))['version'])")"
+          SOURCE="${{ steps.pins.outputs.sync_repo }}@${{ steps.pins.outputs.sync_ref }}+llama.cpp-${{ steps.pins.outputs.llama_tag }}"
+          sed -i \
+            -e "s|^WLLAMA_VERSION=.*|WLLAMA_VERSION=$SRC_VERSION|" \
+            -e "s|^WLLAMA_WASM_SOURCE=.*|WLLAMA_WASM_SOURCE=$SOURCE|" \
+            -e "s|^WLLAMA_WASM_SHA256=.*|WLLAMA_WASM_SHA256=$SHA|" \
+            tool/versions.env
+          echo "wllama_version=$SRC_VERSION" >> "$GITHUB_OUTPUT"
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Synced wasm is byte-identical to the vendored one; nothing to do."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stash the synced artifacts
+        if: steps.vendor.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: synced-wasm
+          path: |
+            lib/assets/wasm/wllama.wasm
+            tool/versions.env
+          retention-days: 1
+
+  # The gate that actually exercises a new wasm: the Dart suites, including
+  # the browser-only ones that load the runtime. The macOS link check is not a
+  # gate here — nothing native changed.
+  validate:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: synced-wasm
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: >-
+          flutter test --platform chrome
+          test/artifact_store_web_test.dart
+          test/web_runtime_smoke_test.dart
+
+  open-pr:
+    needs: [build, validate]
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: synced-wasm
+
+      - name: Open or update the wasm PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BRANCH=chore/wllama-wasm
+          TAG='${{ needs.build.outputs.llama_tag }}'
+          VERSION='${{ needs.build.outputs.wllama_version }}'
+          SOURCE='${{ needs.build.outputs.source }}'
+          TITLE="chore: wllama wasm synced to llama.cpp $TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add lib/assets/wasm/wllama.wasm tool/versions.env
+          git commit -m "$TITLE"
+          git push -f origin "$BRANCH"
+          # See update-llama-pin.yml: --body-file avoids a heredoc inside
+          # command substitution, which bash 3.2 mis-parses.
+          cat > /tmp/pr-body.md <<EOF
+          Automated weekly wasm sync. Rebuilt from \`$SOURCE\`.
+
+          - wllama JS pairing: \`$VERSION\` (consumers must load this version)
+          - embedded llama.cpp: \`$TAG\` (matches the native pin)
+
+          Validated before this PR was opened: \`flutter analyze\`, \`flutter test\`,
+          and the browser-only suites that load the runtime.
+
+          **Still worth a human check:** run the example web build in a browser
+          and confirm a real generation works. The Dart suites load the runtime
+          but do not prove inference is correct on a new wasm.
+          EOF
+          if gh pr list --head "$BRANCH" --state open --json number -q '.[0].number' | grep -q .; then
+            gh pr edit "$BRANCH" --title "$TITLE" --body-file /tmp/pr-body.md
+          else
+            gh pr create --head "$BRANCH" --title "$TITLE" --body-file /tmp/pr-body.md
+          fi
