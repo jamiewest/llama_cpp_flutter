@@ -1,0 +1,156 @@
+name: Update llama.cpp pin
+
+# Daily re-pin of the native xcframework to the latest llama.cpp release.
+#
+# llama.cpp tags 5-15 releases a day, so "daily" does not mean catching every
+# release — it means the pin is never more than a day stale. What decides
+# whether a bump is mergeable is validation, not freshness, so the PR is
+# opened only after the two gates that actually exercise a native pin pass:
+#
+#   1. the staging-ABI tripwire (LlamaExtShim vs llama.cpp's src/llama-ext.h)
+#   2. the macOS link check (pod install fetches the new xcframework and the
+#      example app link resolves every symbol the plugin references)
+#
+# Dart analyze/test are deliberately NOT gates here: a native pin bump changes
+# only tool/versions.env, and the VM tests never load the xcframework. The
+# wasm side moves on its own schedule — see sync-wllama-wasm.yml.
+#
+# A failed gate fails the run and opens no PR, per the fail-loudly convention
+# in CLAUDE.md. The ABI check is stable in practice (it passes across the
+# ~100 releases spot-checked from b10056 to b10156), so a daily red run means
+# something genuinely moved upstream and needs a human.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Never let two re-pins race on the same branch; a run in flight wins and
+# the next scheduled tick picks up whatever is latest by then.
+concurrency:
+  group: update-llama-pin
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.bump.outputs.changed }}
+      tag: ${{ steps.bump.outputs.tag }}
+      previous: ${{ steps.bump.outputs.previous }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # update_deps.sh reports an ABI failure but deliberately still lands the
+      # pin, so the break is visible rather than silently skipped. The gate
+      # that acts on it is the abi-check job below.
+      - name: Bump pin to the latest llama.cpp release
+        id: bump
+        run: |
+          set -euo pipefail
+          PREVIOUS="$(sed -n 's/^LLAMA_CPP_TAG=//p' tool/versions.env)"
+          NO_INSTALL=1 ./tool/update_deps.sh
+          TAG="$(sed -n 's/^LLAMA_CPP_TAG=//p' tool/versions.env)"
+          echo "previous=$PREVIOUS" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if git diff --quiet -- tool/versions.env; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Pin is already at $TAG; nothing to do."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Re-pinned $PREVIOUS -> $TAG"
+          fi
+
+      - name: Stash the bumped pins
+        if: steps.bump.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: versions-env
+          path: tool/versions.env
+          retention-days: 1
+
+  # Gate 1: the staging ABI still declares what LlamaExtShim re-declares.
+  abi-check:
+    needs: bump
+    if: needs.bump.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./tool/check_llama_ext_abi.sh "${{ needs.bump.outputs.tag }}"
+
+  # Gate 2: the new xcframework actually links. The podspec's fetch hook reads
+  # tool/versions.env during pod install, so dropping the bumped file in is
+  # enough to pull the new zip.
+  build-macos:
+    needs: bump
+    if: needs.bump.outputs.changed == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: versions-env
+          path: tool/
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter build macos --debug
+        working-directory: example
+
+  # Only reached when both gates pass — a skipped run here means the bump was
+  # rejected, and the red run above says why.
+  open-pr:
+    needs: [bump, abi-check, build-macos]
+    if: needs.bump.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: versions-env
+          path: tool/
+
+      # Force-pushed and edited in place on purpose: the PR should always show
+      # the latest upstream. Guarding on "a PR is already open" would let one
+      # unreviewed PR freeze the pin at a stale tag, which is the drift this
+      # workflow exists to prevent.
+      - name: Open or update the pin PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BRANCH=chore/llama-cpp-pin
+          TAG='${{ needs.bump.outputs.tag }}'
+          PREVIOUS='${{ needs.bump.outputs.previous }}'
+          TITLE="chore: llama.cpp $TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add tool/versions.env
+          git commit -m "$TITLE"
+          git push -f origin "$BRANCH"
+          # Written to a file rather than captured with $(cat <<EOF ...): a
+          # heredoc inside command substitution trips bash 3.2's parser on
+          # apostrophes, so --body-file keeps this portable.
+          cat > /tmp/pr-body.md <<EOF
+          Automated daily re-pin of the native xcframework: \`$PREVIOUS\` -> \`$TAG\`.
+
+          Validated before this PR was opened:
+
+          - staging-ABI check (\`tool/check_llama_ext_abi.sh $TAG\`)
+          - macOS link check (example app builds against the new xcframework)
+
+          Only the native pin moves here. The vendored wasm is untouched, so
+          the web backend stays on whatever \`sync-wllama-wasm.yml\` last
+          validated — web/native skew closes on that workflow's schedule.
+          EOF
+          if gh pr list --head "$BRANCH" --state open --json number -q '.[0].number' | grep -q .; then
+            gh pr edit "$BRANCH" --title "$TITLE" --body-file /tmp/pr-body.md
+          else
+            gh pr create --head "$BRANCH" --title "$TITLE" --body-file /tmp/pr-body.md
+          fi

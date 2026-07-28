@@ -12,9 +12,13 @@
 #
 # Note: the npm wasm embeds whatever llama.cpp wllama's release pinned,
 # which usually lags the native xcframework pin. The scheduled
-# update-deps workflow rebuilds this artifact from wllama's sources with
-# the llama.cpp submodule set to LLAMA_CPP_TAG, so both platforms track
-# the same upstream; this script is the manual/fallback path.
+# sync-wllama-wasm workflow rebuilds this artifact from wllama's sources
+# with the llama.cpp submodule set to LLAMA_CPP_TAG, so both platforms
+# track the same upstream; this script is the manual/fallback path.
+#
+# That workflow deliberately does NOT call this script: vendoring the npm
+# wasm when a synced build fails is what silently widened web/native skew
+# in the past. Reach for this only when you explicitly want the npm build.
 
 set -euo pipefail
 
