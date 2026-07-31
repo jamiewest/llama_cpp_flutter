@@ -4,15 +4,15 @@ description: >-
   local GGUF model with configurable model + agent, on macOS/iOS and web.
   Also serves as CI's link-level smoke test against the vendored
   llama.xcframework.
-publish_to: 'none'
+publish_to: "none"
 version: 1.0.0+1
 
 environment:
   sdk: ^3.11.5
 
 dependencies:
-  agents: ^1.5.0
-  extensions: ^0.5.0
+  agents: ^2.0.0
+  extensions: ^0.6.0
   file_selector: ^1.1.0
   flutter:
     sdk: flutter

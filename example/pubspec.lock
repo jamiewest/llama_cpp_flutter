@@ -21,10 +21,10 @@ packages:
     dependency: "direct main"
     description:
       name: agents
-      sha256: "9cb0e4403ad6977909515553d65ab8c23f9ae598a04ccc69bca9f420e1002fa7"
+      sha256: "955410b800ccee221af8e957e0b2b5c661bbef22f53df47b7fe93aabebcb3546"
       url: "https://pub.dev"
     source: hosted
-    version: "1.5.0"
+    version: "2.0.0"
   ansicolor:
     dependency: transitive
     description:
@@ -37,10 +37,10 @@ packages:
     dependency: transitive
     description:
       name: anthropic_sdk_dart
-      sha256: a5a1cc97d4253dd039c3bc36a8eb2fe14bb59c120765f5b91c5fabb8576129e8
+      sha256: "71b1c438eacec26f3f95a8560e7d7f54535a2ed7dc61a9717d78d5ad84de0c05"
       url: "https://pub.dev"
     source: hosted
-    version: "5.0.0"
+    version: "6.0.0"
   archive:
     dependency: transitive
     description:
@@ -213,10 +213,10 @@ packages:
     dependency: "direct main"
     description:
       name: extensions
-      sha256: "2277a560f98d6e5f21b78a3399e58e63314467c616940bc9bb1a2be3b50532e1"
+      sha256: cc4fb5675287a0cce06f6f32cf985e8871578777102d20ad812897aa34a790bd
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.0"
+    version: "0.6.0"
   fake_async:
     dependency: transitive
     description:
@@ -685,7 +685,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.6.2"
+    version: "0.8.0"
   logging:
     dependency: transitive
     description:

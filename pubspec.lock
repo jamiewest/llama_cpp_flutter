@@ -125,10 +125,10 @@ packages:
     dependency: "direct main"
     description:
       name: extensions
-      sha256: "2277a560f98d6e5f21b78a3399e58e63314467c616940bc9bb1a2be3b50532e1"
+      sha256: cc4fb5675287a0cce06f6f32cf985e8871578777102d20ad812897aa34a790bd
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.0"
+    version: "0.6.0"
   fake_async:
     dependency: "direct dev"
     description:

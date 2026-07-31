@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.8.0
+
+- **Breaking: requires `extensions` ^0.6.0.** The constraint moves off
+  `^0.5.0`, so consumers must upgrade with this package. Nothing in this
+  package's own API changed, but 0.6.0 changes how
+  `FunctionInvokingChatClient` — the wrapper this package's docs tell you to
+  put around `LlamaChatClient` — ends a tool loop: hitting
+  `maximumIterationsPerRequest` now costs one extra provider call (the final
+  request drops the function declarations so the model answers instead of
+  returning unanswered tool calls), and exceeding
+  `maximumConsecutiveErrorsPerRequest` throws — a single tool failure
+  rethrown as-is, several combined into an `AggregateException` — rather than
+  returning a partial response. Consumers running tool loops against a local
+  model should re-check their limits and error handling.
+- **The Darwin backend now builds against llama.cpp `b10165`** (was
+  `b10091`). The vendored `llama.xcframework` is fetched at this tag on
+  iOS/macOS. The web runtime is unaffected: `wllama.wasm` is still the build
+  paired with `b10091`.
+
 ## 0.7.0
 
 - **The web runtime now tunes llama.cpp for the browser.** Both web load
