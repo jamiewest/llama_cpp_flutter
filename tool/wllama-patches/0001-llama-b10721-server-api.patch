@@ -1,5 +1,5 @@
 diff --git a/cpp/wllama-context.h b/cpp/wllama-context.h
-index fa2cc7a..755d88b 100644
+index fa2cc7a..18fc81f 100644
 --- a/cpp/wllama-context.h
 +++ b/cpp/wllama-context.h
 @@ -302,11 +302,11 @@ struct wllama_context
@@ -72,3 +72,30 @@ index fa2cc7a..755d88b 100644
    }
    // all tasks in the current loop is processed, slots data is now ready
    LOG_DBG("%s", "update slots\n");
+@@ -954,6 +964,18 @@ void server_queue::start_loop(int64_t idle_sleep_ms)
+   has_more_tasks = !queue_tasks.empty();
+ }
+ 
++// b10700-ish server-queue additions: upstream runs a worker thread that
++// yield_to_queue() hands queued tasks to while the yielded work runs. The
++// wasm build is single-threaded with no worker, so there is nothing to stop,
++// and yielded work simply runs inline — which also keeps all ggml compute on
++// the one thread, as upstream requires.
++void server_queue::worker_stop() {}
++
++void server_queue::yield_to_queue(std::function<void()> &&work)
++{
++  work();
++}
++
+ const char *llama_build_info()
+ {
+   return "wllama";
+@@ -1135,6 +1157,7 @@ enum common_params_fit_status common_fit_params(
+     llama_model_tensor_buft_override *tensor_buft_overrides,
+     size_t *margins,
+     uint32_t n_ctx_min,
++    const common_fit_extra_model *extra,
+     ggml_log_level log_level)
+ {
+   return COMMON_PARAMS_FIT_STATUS_FAILURE;
