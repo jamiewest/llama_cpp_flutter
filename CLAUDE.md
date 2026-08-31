@@ -58,6 +58,10 @@ them in one workflow meant a web-side compat break blocked routine native
 bumps. Both workflows **validate before opening a PR**, so an open PR is one
 that already passed its gates.
 
+Both scheduled workflows file (or append to) a GitHub issue when a scheduled
+run fails, so breakage is visible in the repo rather than only in the owner's
+email. Close the issue once the run is green again.
+
 ### `.github/workflows/update-llama-pin.yml` — native, daily
 
 `tool/update_deps.sh` bumps the pin to the latest llama.cpp release
@@ -78,6 +82,16 @@ Dart analyze/test are not gates here — a native pin bump touches only
 is never more than a day stale", not "every release is caught". A failed gate
 fails the run and opens nothing.
 
+The PR **auto-merges** as soon as both gates pass. CI cannot stand in for
+review on these PRs: workflow runs triggered by a `GITHUB_TOKEN` push sit at
+"action_required" forever, which once left a fully validated pin PR open for
+a month while main drifted ~500 releases behind. A red daily run is the
+signal a human is needed — usually upstream changed an API the plugin calls
+(example: `mtmd_helper_bitmap_init_from_buf` grew a required
+`mtmd_helper_init_opt` argument around b10651). The fix and the pin bump must
+land together in one PR, since the plugin source can only match one side of
+the break.
+
 ### `.github/workflows/sync-wllama-wasm.yml` — web, weekly
 
 Rebuilds `lib/assets/wasm/wllama.wasm` from `WLLAMA_SYNC_REPO@WLLAMA_SYNC_REF`
@@ -95,11 +109,19 @@ npm* wasm, replacing a build that tracked the native pin with one that did
 not. `tool/update_wllama.sh` is now only the manual/fallback path for when you
 explicitly want the npm artifact.
 
-The fix for a red sync build is another compat patch on the fork branch
-(examples: `params_from_json_cmpl` → `server_schema::eval_llama_cmpl_schema`;
-`use_mmap`/`use_mlock` moving out of `common_params`). When wllama publishes a
-new release, rebase/recut `flutter-sync` from the new tag so the wasm stays
-paired with the npm JS consumers load.
+The fix for a red sync build is another compat patch. Patches can live in two
+places: on the fork branch itself, or as `.patch` files in
+`tool/wllama-patches/` in this repo, which the workflow applies on top of the
+fork clone before building (preferred for quick fixes — they land through a
+reviewable PR here without pushing to the fork). Examples of drift:
+`params_from_json_cmpl` → `server_schema::eval_llama_cmpl_schema`;
+`use_mmap`/`use_mlock` collapsing into `llama_load_mode`; `json` becoming
+`common_json` in the server headers. A patch that stops applying (the fork
+absorbed it, or the glue moved) fails the build loudly — delete or
+regenerate it. When folding patches into the fork branch, delete the files
+here in the same breath. When wllama publishes a new release, rebase/recut
+`flutter-sync` from the new tag so the wasm stays paired with the npm JS
+consumers load, and expect the patch set to need regenerating.
 
 The wasm must stay paired with the `@wllama/wllama` JS version consumers
 load (`WLLAMA_VERSION`); custom builds keep the pairing by building from

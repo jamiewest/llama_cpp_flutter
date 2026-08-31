@@ -18,7 +18,15 @@ name: Update llama.cpp pin
 # A failed gate fails the run and opens no PR, per the fail-loudly convention
 # in CLAUDE.md. The ABI check is stable in practice (it passes across the
 # ~100 releases spot-checked from b10056 to b10156), so a daily red run means
-# something genuinely moved upstream and needs a human.
+# something genuinely moved upstream and needs a human (example: b10651-ish
+# added a required argument to mtmd_helper_bitmap_init_from_buf, which froze
+# the pin until LlamaSession.swift was fixed alongside the bump).
+#
+# The PR auto-merges once both gates pass. CI cannot vet it instead: runs
+# triggered by a GITHUB_TOKEN push sit at "action_required" forever, which is
+# how a validated pin PR once idled for a month while main drifted 500
+# releases behind. The gates above ARE the validation — merging is the point
+# of the workflow, and a red run (gate or merge) is the signal for a human.
 
 on:
   schedule:
@@ -28,6 +36,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 # Never let two re-pins race on the same branch; a run in flight wins and
 # the next scheduled tick picks up whatever is latest by then.
@@ -98,12 +107,15 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - run: flutter pub get
       - run: flutter build macos --debug
         working-directory: example
 
   # Only reached when both gates pass — a skipped run here means the bump was
-  # rejected, and the red run above says why.
+  # rejected, and the red run above says why. The PR is opened for the audit
+  # trail and merged immediately: the gates already validated it, and CI on a
+  # bot-opened PR never actually runs (see the header comment).
   open-pr:
     needs: [bump, abi-check, build-macos]
     if: needs.bump.outputs.changed == 'true'
@@ -140,7 +152,7 @@ jobs:
           cat > /tmp/pr-body.md <<EOF
           Automated daily re-pin of the native xcframework: \`$PREVIOUS\` -> \`$TAG\`.
 
-          Validated before this PR was opened:
+          Validated before this PR was opened (and auto-merged on that basis):
 
           - staging-ABI check (\`tool/check_llama_ext_abi.sh $TAG\`)
           - macOS link check (example app builds against the new xcframework)
@@ -153,4 +165,36 @@ jobs:
             gh pr edit "$BRANCH" --title "$TITLE" --body-file /tmp/pr-body.md
           else
             gh pr create --head "$BRANCH" --title "$TITLE" --body-file /tmp/pr-body.md
+          fi
+          gh pr merge "$BRANCH" --squash --delete-branch
+
+  # A red scheduled run otherwise only emails the owner, which is how the
+  # gates stayed red for five straight days once. Keep one open issue as the
+  # visible, accumulating record; close it when the run is green again.
+  report-failure:
+    needs: [bump, abi-check, build-macos, open-pr]
+    if: always() && contains(needs.*.result, 'failure') && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: File or update the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TITLE='update-llama-pin: scheduled run failing'
+          cat > /tmp/issue-body.md <<EOF
+          The daily llama.cpp pin update failed:
+          ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          A failed \`abi-check\` means the staging ABI moved (see the
+          LlamaExtShim procedure in CLAUDE.md). A failed \`build-macos\` means
+          the new xcframework broke the plugin's API surface — fix the plugin
+          source together with the pin bump in one PR.
+          EOF
+          NUMBER=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search "in:title \"$TITLE\"" --json number -q '.[0].number')
+          if [ -n "$NUMBER" ]; then
+            gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/issue-body.md
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file /tmp/issue-body.md
           fi

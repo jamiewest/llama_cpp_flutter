@@ -21,6 +21,12 @@ name: Sync wllama wasm
 # loudly, and leaves the last known-good synced wasm in place.
 # tool/update_wllama.sh remains the manual/fallback path when you explicitly
 # want the npm artifact.
+#
+# Compat patches for upstream API drift live in tool/wllama-patches/ in THIS
+# repo and are applied on top of the fork branch before building, so a drift
+# fix can land here through a reviewable PR without pushing to the fork. A
+# patch that stops applying (usually because the fork branch absorbed it)
+# fails the run loudly — delete or regenerate it.
 
 on:
   schedule:
@@ -30,6 +36,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 concurrency:
   group: sync-wllama-wasm
@@ -64,10 +71,19 @@ jobs:
           git clone --branch "${{ steps.pins.outputs.sync_ref }}" \
             --depth 1 "https://github.com/${{ steps.pins.outputs.sync_repo }}" /tmp/wllama
           cd /tmp/wllama
-          git submodule update --init --depth 1 llama.cpp
-          git -C llama.cpp fetch --depth 1 origin \
-            tag "${{ steps.pins.outputs.llama_tag }}"
-          git -C llama.cpp checkout "${{ steps.pins.outputs.llama_tag }}"
+          shopt -s nullglob
+          for patch in "$GITHUB_WORKSPACE"/tool/wllama-patches/*.patch; do
+            echo "Applying $(basename "$patch")"
+            git apply --verbose "$patch"
+          done
+          # Clone the pinned tag directly rather than initialising the
+          # submodule and fetching a second ref into its fresh shallow clone:
+          # that dance intermittently dies with "fatal: shallow file has
+          # changed since we read it" (it killed every scheduled run in
+          # Aug 2026).
+          rm -rf llama.cpp
+          git clone --branch "${{ steps.pins.outputs.llama_tag }}" --depth 1 \
+            https://github.com/ggml-org/llama.cpp llama.cpp
           SKIP_COMPAT=1 bash scripts/build_wasm.sh
           test -f src/wasm/wllama.wasm
 
@@ -120,6 +136,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
@@ -173,4 +190,35 @@ jobs:
             gh pr edit "$BRANCH" --title "$TITLE" --body-file /tmp/pr-body.md
           else
             gh pr create --head "$BRANCH" --title "$TITLE" --body-file /tmp/pr-body.md
+          fi
+
+  # A red scheduled run otherwise only emails the owner. Keep one open issue
+  # as the visible, accumulating record; close it when the sync is green.
+  report-failure:
+    needs: [build, validate, open-pr]
+    if: always() && contains(needs.*.result, 'failure') && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: File or update the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TITLE='sync-wllama-wasm: scheduled run failing'
+          cat > /tmp/issue-body.md <<EOF
+          The weekly wllama wasm sync failed:
+          ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          A compile failure in the build job usually means llama.cpp's
+          \`common/\` or \`tools/server\` API drifted under wllama's glue.
+          The fix is a compat patch in \`tool/wllama-patches/\` (or on the
+          fork branch) — see CLAUDE.md. Nothing was vendored; the last
+          known-good wasm is still in place.
+          EOF
+          NUMBER=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search "in:title \"$TITLE\"" --json number -q '.[0].number')
+          if [ -n "$NUMBER" ]; then
+            gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/issue-body.md
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file /tmp/issue-body.md
           fi

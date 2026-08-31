@@ -5,14 +5,22 @@ on:
   push:
     branches: [main]
 
+# Superseded pushes to the same PR don't need their runs finished; main
+# builds are kept so a merge never cancels its own validation.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   analyze-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
@@ -31,6 +39,7 @@ jobs:
   # longer declares what darwin/Classes/LlamaExtShim.cpp re-declares.
   abi-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - run: ./tool/check_llama_ext_abi.sh
@@ -39,11 +48,13 @@ jobs:
   # app link resolves every llama.cpp symbol the plugin references.
   build-macos:
     runs-on: macos-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - run: flutter pub get
       - run: flutter build macos --debug
         working-directory: example
