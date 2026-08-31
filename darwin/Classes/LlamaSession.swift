@@ -1447,8 +1447,12 @@ final class LlamaSession {
         // As of llama.cpp b9585 this returns a wrapper struct (carrying an
         // optional video context we don't use) and takes a `placeholder` flag;
         // `false` decodes a real bitmap rather than a token-counting stub.
-        return mtmd_helper_bitmap_init_from_buf(mtmd, base, data.count, false)
-          .bitmap
+        // b10651-ish added a required init-opt argument (video decode
+        // settings); the default leaves them at upstream's values.
+        return mtmd_helper_bitmap_init_from_buf(
+          mtmd, base, data.count, false, mtmd_helper_init_opt_default()
+        )
+        .bitmap
       }
       guard let bitmap else {
         return .failure(GenerationError("Failed to decode media bytes"))

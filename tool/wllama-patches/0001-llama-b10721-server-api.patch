@@ -1,0 +1,74 @@
+diff --git a/cpp/wllama-context.h b/cpp/wllama-context.h
+index fa2cc7a..755d88b 100644
+--- a/cpp/wllama-context.h
++++ b/cpp/wllama-context.h
+@@ -302,11 +302,11 @@ struct wllama_context
+       task.id = rd->get_new_id();
+       task.index = 0;
+       // llama.cpp moved server_task::params_from_json_cmpl to a free
+-      // function (same argument list) in the b10xxx server refactor.
++      // function in the b10xxx server refactor; the slot n_ctx argument was
++      // dropped again around b10700.
+       task.params = server_schema::eval_llama_cmpl_schema(
+           vocab,
+           params,
+-          meta->slot_n_ctx,
+           meta->logit_bias_eog,
+           body);
+       task.params.res_type = res_type;
+@@ -402,10 +402,16 @@ struct wllama_context
+       params.image_max_tokens = req.image_max_tokens.value;
+ 
+     // model params
+-    if (req.use_mmap.not_null())
+-      params.use_mmap = req.use_mmap.value;
+-    if (req.use_mlock.not_null())
+-      params.use_mlock = req.use_mlock.value;
++    // llama.cpp replaced common_params.use_mmap/use_mlock with a single
++    // llama_load_mode enum around b10700; keep the boolean JS API and map it.
++    if (req.use_mmap.not_null() || req.use_mlock.not_null())
++    {
++      const bool use_mmap = req.use_mmap.not_null() ? req.use_mmap.value : true;
++      const bool use_mlock = req.use_mlock.not_null() ? req.use_mlock.value : false;
++      params.load_mode = use_mmap
++          ? (use_mlock ? LLAMA_LOAD_MODE_MMAP_MLOCK : LLAMA_LOAD_MODE_MMAP)
++          : (use_mlock ? LLAMA_LOAD_MODE_MLOCK : LLAMA_LOAD_MODE_NONE);
++    }
+     if (req.n_gpu_layers.not_null())
+       params.n_gpu_layers = req.n_gpu_layers.value;
+     if (req.model_alias.not_null())
+@@ -669,10 +675,11 @@ struct wllama_context
+     int embd_normalize = 2;
+     if (body.count("embd_normalize") != 0)
+     {
+-      embd_normalize = body.at("embd_normalize");
++      embd_normalize = body.at("embd_normalize").get<int>();
+     }
+ 
+-    auto tokenized_prompts = tokenize_input_prompts(vocab, nullptr, prompt, true, true);
++    auto tokenized_prompts = tokenize_input_prompts(
++        vocab, nullptr, prompt, true, true, mtmd_helper_init_opt_default());
+     for (const auto &tokens : tokenized_prompts)
+     {
+       if (tokens.empty())
+@@ -728,7 +735,8 @@ struct wllama_context
+     rd = std::make_unique<server_response_reader>(ctx_server.get_response_reader());
+     last_error = "";
+ 
+-    auto tokens = format_prompt_rerank(model, vocab, nullptr, query, document);
++    auto tokens = format_prompt_rerank(
++        model, vocab, nullptr, query, document, mtmd_helper_init_opt_default());
+     server_task task = server_task(SERVER_TASK_TYPE_RERANK);
+     task.id = rd->get_new_id();
+     task.index = 0;
+@@ -943,7 +951,9 @@ void server_queue::start_loop(int64_t idle_sleep_ms)
+     queue_tasks.pop_front();
+ 
+     LOG_DBG("processing task, id = %d\n", task.id);
+-    callback_new_task(std::move(task));
++    // The single-threaded wasm loop never yields, so the task can't be
++    // declined (upstream asserts declines only happen while yielding).
++    callback_new_task(std::move(task), /*is_yielding=*/false);
+   }
+   // all tasks in the current loop is processed, slots data is now ready
+   LOG_DBG("%s", "update slots\n");
