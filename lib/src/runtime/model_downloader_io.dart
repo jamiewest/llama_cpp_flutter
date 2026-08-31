@@ -110,7 +110,14 @@ final class ModelDownloader {
           // between the final write and the rename). Restart cleanly so the
           // retry can't wedge on 416 forever.
           await part.delete();
-          return download(url, directory: directory, onProgress: onProgress);
+          // Awaited so the retry's errors surface through this try (and the
+          // Dart 3.10 unawaited_return_in_try_block lint); the retry opens
+          // its own client, so holding this one until it finishes is benign.
+          return await download(
+            url,
+            directory: directory,
+            onProgress: onProgress,
+          );
         }
         throw HttpException(
           'The model download failed with HTTP ${response.statusCode}.',
